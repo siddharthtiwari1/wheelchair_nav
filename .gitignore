@@ -32,6 +32,13 @@ src/wheelchair_description/urdf/wheelchair_unified.usda
 src/wheelchair_description (2)/
 src/wheelchair_description.zip
 
+# Side tools / ML pipelines excluded from the navigation workspace repo
+src/cable_trace_deploy/
+src/ground_truth_labeling/
+src/kinoflow_controller/
+src/wheelchair_e2e/
+src/wheelchair_mono_depth/
+
 # ============================================================================
 # Agent / assistant tooling (excluded from public repo)
 # ============================================================================
