@@ -1,0 +1,26 @@
+depth_data_collection_node:
+  ros__parameters:
+    save_rate_hz: 3.0
+    output_dir: "/home/sidd/wheelchair_nav/mono_depth_data"
+    session_id: ""
+    max_depth_mm: 10000
+    min_depth_mm: 100
+    sync_queue_size: 10
+    sync_slop: 0.15
+
+    # Front D455
+    front_rgb_topic: "/camera/color/image_raw"
+    front_depth_topic: "/camera/aligned_depth_to_color/image_raw"
+    front_info_topic: "/camera/color/camera_info"
+
+    # Left D455
+    left_rgb_topic: "/mapping_camera/color/image_raw"
+    left_depth_topic: "/mapping_camera/aligned_depth_to_color/image_raw"
+    left_info_topic: "/mapping_camera/color/camera_info"
+
+    # Right D435i
+    right_rgb_topic: "/right_camera/color/image_raw"
+    right_depth_topic: "/right_camera/aligned_depth_to_color/image_raw"
+    right_info_topic: "/right_camera/color/camera_info"
+
+    odom_topic: "/odometry/filtered"

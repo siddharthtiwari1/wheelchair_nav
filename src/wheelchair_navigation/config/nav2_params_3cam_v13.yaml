@@ -1,0 +1,448 @@
+###############################################################################
+# NAV2 PARAMETERS - 3-CAMERA WHEELCHAIR v13 (SPEED + ANTI-KIDNAPPING)
+###############################################################################
+# DO NOT EDIT — create a new versioned file instead.
+# Based on: nav2_params_3cam_v12.yaml (which contains v10 params + STVL removal)
+# Created: 2026-03-07
+# Pairs with: wheelchair_fusion_nav.launch.py, wheelchair_robust_nav_v3.xml,
+#             scan_fusion_v7, 3x RealSense (2x D455 + D435i)
+#
+# CHANGES vs v12 — TWO CATEGORIES:
+#
+# === A. ANTI-KIDNAPPING (7 fixes from rosbag nav_20260307_152150 analysis) ===
+# 1. do_beamskip: false -> true (filters noisy beams where particles disagree)
+# 2. max_beams: 360 -> 180 (scan_fused has ~3067 pts; 180 beams is sufficient,
+#    reduces AMCL compute and noise sensitivity)
+# 3. sigma_hit: 0.05 -> 0.10 (scan_fused has camera noise; 0.05 was too tight,
+#    causing multimodal likelihood peaks that triggered 5.3m AMCL jump)
+# 4. Global costmap scan topic: /scan_filtered -> /scan_fused (consistency with
+#    AMCL — both must see the same obstacles)
+# 5. Local costmap scan topic: /scan_filtered -> /scan_fused (same reason)
+# 6. use_collision_detection: false -> true (was disabled due to STVL phantom
+#    obstacles; safe now that STVL is removed in v12)
+# 7. yaw_goal_tolerance: 6.28 -> 0.50 (~29 deg — wheelchair should face target)
+#
+# === B. SPEED + RESPONSIVENESS (rosbag nav_20260307_171159 analysis) ===
+# Problem: 32% idle time (273.5s/851s), 0.53s ramp-up, 6.5% angular clipping,
+#          5.8s worst goal response, robot feels sluggish
+#
+# 8.  desired_linear_vel: 0.25 -> 0.28 m/s (DiffDriveController limit=0.30,
+#     odom shows stable 0.264 peak — 0.28 safe with 7% margin)
+# 9.  velocity_smoother max_velocity: [0.25,0,0.50] -> [0.28,0,0.65]
+#     - Linear matches RPP desired_linear_vel
+#     - Angular 0.50->0.65: RPP peak was 0.71, 6.5% of commands were clipped
+# 10. velocity_smoother max_accel: [0.25,0,0.8] -> [0.40,0,1.2]
+#     - Linear: ramp-up from 0.53s to ~0.35s (0→0.15 m/s)
+#     - Angular 0.8->1.2: snappier turns
+# 11. velocity_smoother max_decel: [-0.25,0,-0.8] -> [-0.50,0,-1.2]
+#     - Linear: stop time halved (1.0s -> 0.56s from max speed)
+#     - RPP already had max_linear_decel=0.50 — smoother was the bottleneck
+# 12. use_velocity_scaled_lookahead_dist: false -> true (lookahead adapts to
+#     speed — shorter at low speed for responsiveness, longer at high speed)
+# 13. min_lookahead_dist: 0.50 -> 0.35 (tighter path following at low speed)
+# 14. approach_velocity_scaling_dist: 0.6 -> 0.40 (starts slowing 40cm from
+#     goal instead of 60cm — less time crawling)
+# 15. min_approach_linear_velocity: 0.05 -> 0.08 (faster final approach)
+# 16. use_regulated_linear_velocity_scaling: false -> true (slows on tight
+#     curves — important for wheelchair passenger comfort)
+# 17. use_cost_regulated_linear_velocity_scaling: false -> true (slows near
+#     obstacles — safe replacement for removed STVL)
+# 18. cost_scaling_dist: 0.25 -> 0.40 (must be <= inflation_radius 0.45)
+# 19. cost_scaling_gain: 0.8 -> 1.0 (gentler slowdown — 1.0 = linear scaling)
+# 20. regulated_linear_scaling_min_speed: 0.15 -> 0.10 (can go slower near
+#     obstacles for safety)
+# 21. bt_loop_duration: 10 -> 8 (faster BT tick for quicker recovery start)
+# 22. max_planning_time: 2.0 -> 1.5 (Goals 9,11 had 5.8s response; planner
+#     was likely retrying — fail faster, let BT handle recovery)
+# 23. behavior_server max_rotational_vel: 0.35 -> 0.50 (recovery spins were
+#     too slow — BT v3 uses 60 deg spins, needs speed)
+# 24. behavior_server rotational_acc_lim: 0.5 -> 0.8 (snappier recovery spins)
+# 25. progress_checker movement_time_allowance: 4.0 -> 6.0 (BT v3 has longer
+#     backup/spin recoveries — give more time before declaring stuck)
+# 26. smoother deadband: [0.02,0,0.02] -> [0.01,0,0.01] (less velocity lost
+#     to deadband rounding at very low speeds)
+#
+# DO NOT EDIT — create a new versioned file instead.
+###############################################################################
+
+###############################################################################
+# AMCL - RPLIDAR S3 + SCAN_FUSED OPTIMIZED
+###############################################################################
+amcl:
+  ros__parameters:
+    use_sim_time: false
+    min_particles: 3000
+    max_particles: 8000
+    kld_err: 0.01
+    kld_z: 0.99
+    pf_err: 0.01
+    pf_z: 0.99
+    resample_interval: 1
+    robot_model_type: "nav2_amcl::DifferentialMotionModel"
+    alpha1: 0.05
+    alpha2: 0.05
+    alpha3: 0.05
+    alpha4: 0.05
+    alpha5: 0.05
+    laser_model_type: "likelihood_field"
+    max_beams: 180                      # v13: 360->180 (reduces AMCL noise with dense scan_fused)
+    laser_max_range: 25.0
+    laser_min_range: 0.05
+    laser_likelihood_max_dist: 2.0
+    sigma_hit: 0.10                     # v13: 0.05->0.10 (scan_fused camera noise needs wider beam model)
+    z_hit: 0.95
+    z_rand: 0.04
+    z_max: 0.005
+    z_short: 0.005
+    do_beamskip: true                   # v13: false->true (filters noisy beams — prevents AMCL jumps)
+    beam_skip_distance: 0.5
+    beam_skip_threshold: 0.3
+    beam_skip_error_threshold: 0.9
+    update_min_d: 0.15
+    update_min_a: 0.15
+    laser_scan_timeout: 1.0
+    recovery_alpha_fast: 0.0            # DISABLED: prevents AMCL jumping
+    recovery_alpha_slow: 0.0
+    tf_broadcast: true
+    transform_tolerance: 1.0
+    global_frame_id: "map"
+    odom_frame_id: "odom"
+    base_frame_id: "base_link"
+    scan_topic: /scan_fused
+    set_initial_pose: true
+    initial_pose:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      yaw: 0.0
+    initial_cov_xx: 0.15
+    initial_cov_yy: 0.15
+    initial_cov_aa: 0.12
+    initial_cov_xy: 0.0
+    initial_cov_xa: 0.0
+    initial_cov_ya: 0.0
+    always_reset_initial_pose: false
+    first_map_only: false
+    save_pose_rate: 10.0
+    gui_publish_rate: 5.0
+
+###############################################################################
+# BT NAVIGATOR
+###############################################################################
+bt_navigator:
+  ros__parameters:
+    use_sim_time: false
+    global_frame: map
+    robot_base_frame: base_link
+    odom_topic: /odometry/filtered
+    bt_loop_duration: 8                 # v13: 10->8 (faster BT tick = quicker recovery response)
+    default_server_timeout: 20
+    wait_for_service_timeout: 1000
+    action_server_result_timeout: 60.0
+    navigators: ["navigate_to_pose", "navigate_through_poses"]
+    navigate_to_pose:
+      plugin: "nav2_bt_navigator::NavigateToPoseNavigator"
+    navigate_through_poses:
+      plugin: "nav2_bt_navigator::NavigateThroughPosesNavigator"
+    transform_tolerance: 1.0
+    error_code_names:
+      - compute_path_error_code
+      - follow_path_error_code
+
+###############################################################################
+# CONTROLLER SERVER - RESPONSIVE PATH FOLLOWING
+###############################################################################
+controller_server:
+  ros__parameters:
+    use_sim_time: false
+    controller_frequency: 20.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.001
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance: 0.5              # v13: 1.0->0.5 (fail faster, let BT recovery handle it)
+
+    progress_checker_plugins: ["progress_checker"]
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.05
+      movement_time_allowance: 6.0      # v13: 4.0->6.0 (BT v3 has longer recoveries)
+
+    goal_checker_plugins: ["general_goal_checker"]
+    general_goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.15
+      yaw_goal_tolerance: 0.50          # v13: 6.28->0.50 (~29 deg — wheelchair should face target)
+      stateful: true
+
+    controller_plugins: ["FollowPath"]
+    odom_topic: /odometry/filtered
+
+    FollowPath:
+      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+      desired_linear_vel: 0.28          # v13: 0.25->0.28 (DiffDrive limit=0.30, odom peak=0.264)
+      max_linear_accel: 0.40            # v13: 0.25->0.40 (matches smoother)
+      max_linear_decel: 0.50
+      lookahead_dist: 0.60              # v13: 0.70->0.60 (tighter path following)
+      min_lookahead_dist: 0.35          # v13: 0.50->0.35 (responsive at low speed)
+      max_lookahead_dist: 1.20
+      lookahead_time: 1.5
+      use_velocity_scaled_lookahead_dist: true   # v13: false->true (adaptive lookahead)
+      use_rotate_to_heading: false      # Must be false when allow_reversing=true
+      rotate_to_heading_min_angle: 0.35
+      rotate_to_heading_angular_vel: 0.5
+      max_angular_accel: 1.2            # v13: 0.8->1.2 (snappier turns)
+      allow_reversing: true
+      transform_tolerance: 1.0
+      min_approach_linear_velocity: 0.08  # v13: 0.05->0.08 (faster final approach)
+      approach_velocity_scaling_dist: 0.40  # v13: 0.6->0.40 (less time crawling to goal)
+      use_collision_detection: true     # v13: false->true (safe with STVL removed)
+      max_allowed_time_to_collision_up_to_carrot: 1.0
+      use_regulated_linear_velocity_scaling: true   # v13: false->true (slow on tight curves)
+      use_cost_regulated_linear_velocity_scaling: true  # v13: false->true (slow near obstacles)
+      regulated_linear_scaling_min_radius: 0.2
+      regulated_linear_scaling_min_speed: 0.10  # v13: 0.15->0.10 (can slow more near obstacles)
+      cost_scaling_dist: 0.40           # v13: 0.25->0.40 (must be <= inflation_radius 0.45)
+      cost_scaling_gain: 1.0            # v13: 0.8->1.0 (linear scaling — gentler slowdown)
+      inflation_cost_scaling_factor: 2.5
+      use_fixed_curvature_lookahead: false
+      curvature_lookahead_dist: 0.35
+      max_robot_pose_search_dist: 10.0
+      interpolate_curvature_after_goal: false
+
+###############################################################################
+# LOCAL COSTMAP - SCAN_FUSED obstacle + inflation (no STVL)
+###############################################################################
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      global_frame: odom
+      robot_base_frame: base_link
+      use_sim_time: false
+      rolling_window: true
+      width: 5
+      height: 5
+      resolution: 0.05
+      footprint: "[[0.45, 0.35], [0.45, -0.35], [-0.45, -0.35], [-0.45, 0.35]]"
+      footprint_padding: 0.03
+      transform_tolerance: 1.0
+      plugins: ["obstacle_layer", "inflation_layer"]
+
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        footprint_clearing_enabled: true
+        max_obstacle_height: 2.0
+        combination_method: 1
+
+        scan:
+          topic: /scan_fused             # v13: /scan_filtered -> /scan_fused (consistency with AMCL)
+          max_obstacle_height: 2.0
+          min_obstacle_height: 0.05
+          clearing: true
+          marking: true
+          data_type: "LaserScan"
+          raytrace_max_range: 12.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 10.0
+          obstacle_min_range: 0.30
+          inf_is_valid: false
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 2.5
+        inflation_radius: 0.45
+
+      always_send_full_costmap: false
+      track_unknown_space: true
+
+###############################################################################
+# GLOBAL COSTMAP - SCAN_FUSED + STATIC MAP
+###############################################################################
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      global_frame: map
+      robot_base_frame: base_link
+      use_sim_time: false
+      footprint: "[[0.45, 0.35], [0.45, -0.35], [-0.45, -0.35], [-0.45, 0.35]]"
+      footprint_padding: 0.03
+      resolution: 0.05
+      track_unknown_space: true
+      transform_tolerance: 1.0
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: true
+        enabled: true
+        map_topic: /map
+
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+
+        scan:
+          topic: /scan_fused             # v13: /scan_filtered -> /scan_fused (consistency with AMCL)
+          max_obstacle_height: 2.0
+          clearing: true
+          marking: true
+          data_type: "LaserScan"
+          raytrace_max_range: 12.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 10.0
+          obstacle_min_range: 0.25
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 2.5
+        inflation_radius: 0.55
+
+      always_send_full_costmap: false
+
+###############################################################################
+# PLANNER SERVER
+###############################################################################
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 2.0     # v13: 1.5->2.0 (expect faster planning)
+    use_sim_time: false
+    planner_plugins: ["GridBased"]
+
+    GridBased:
+      plugin: "nav2_smac_planner::SmacPlanner2D"
+      tolerance: 0.10
+      downsample_costmap: false
+      downsampling_factor: 1
+      allow_unknown: true
+      max_iterations: 1000000
+      max_on_approach_iterations: 1000
+      max_planning_time: 1.5            # v13: 2.0->1.5 (fail faster, let BT retry)
+      cost_travel_multiplier: 2.0
+      use_final_approach_orientation: false
+
+      smoother:
+        max_iterations: 1000
+        w_smooth: 0.3
+        w_data: 0.2
+        tolerance: 1.0e-10
+
+###############################################################################
+# SMOOTHER SERVER
+###############################################################################
+smoother_server:
+  ros__parameters:
+    use_sim_time: false
+    smoother_plugins: ["simple_smoother"]
+
+    simple_smoother:
+      plugin: "nav2_smoother::SimpleSmoother"
+      tolerance: 1.0e-10
+      max_its: 2000
+      do_refinement: true
+      refinement_num: 3
+      w_smooth: 0.4
+      w_data: 0.2
+
+###############################################################################
+# BEHAVIOR SERVER - WHEELCHAIR-SAFE RECOVERY (tuned for BT v3)
+###############################################################################
+behavior_server:
+  ros__parameters:
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    use_sim_time: false
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
+    spin:
+      plugin: "nav2_behaviors::Spin"
+    backup:
+      plugin: "nav2_behaviors::BackUp"
+    drive_on_heading:
+      plugin: "nav2_behaviors::DriveOnHeading"
+    assisted_teleop:
+      plugin: "nav2_behaviors::AssistedTeleop"
+    wait:
+      plugin: "nav2_behaviors::Wait"
+    global_frame: odom
+    robot_base_frame: base_link
+    transform_tolerance: 1.0
+    simulate_ahead_time: 2.0
+    max_rotational_vel: 0.50            # v13: 0.35->0.50 (BT v3 60-deg spins need speed)
+    min_rotational_vel: 0.10
+    rotational_acc_lim: 0.8             # v13: 0.5->0.8 (snappier recovery spins)
+
+###############################################################################
+# VELOCITY SMOOTHER - RESPONSIVE + COMFORTABLE
+###############################################################################
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: false
+    smoothing_frequency: 40.0
+    scale_velocities: true
+    feedback: "OPEN_LOOP"
+    max_velocity: [0.28, 0.0, 0.65]    # v13: [0.25,0,0.50]->[0.28,0,0.65] (faster linear+angular)
+    min_velocity: [-0.15, 0.0, -0.65]  # v13: angular matched to max
+    max_accel: [0.40, 0.0, 1.2]        # v13: [0.25,0,0.8]->[0.40,0,1.2] (ramp-up 0.53s->0.35s)
+    max_decel: [-0.50, 0.0, -1.2]      # v13: [-0.25,0,-0.8]->[-0.50,0,-1.2] (stop time halved)
+    odom_topic: "/odometry/filtered"
+    odom_duration: 0.1
+    deadband_velocity: [0.01, 0.0, 0.01]  # v13: [0.02,0,0.02]->[0.01,0,0.01] (less velocity lost)
+    velocity_timeout: 1.0
+
+###############################################################################
+# WAYPOINT FOLLOWER
+###############################################################################
+waypoint_follower:
+  ros__parameters:
+    use_sim_time: false
+    loop_rate: 20
+    stop_on_failure: false
+    waypoint_task_executor_plugin: "wait_at_waypoint"
+    wait_at_waypoint:
+      plugin: "nav2_waypoint_follower::WaitAtWaypoint"
+      enabled: true
+      waypoint_pause_duration: 200
+
+###############################################################################
+# COLLISION MONITOR (disabled via launch arg, wired for future use)
+###############################################################################
+collision_monitor:
+  ros__parameters:
+    use_sim_time: false
+    base_frame_id: "base_link"
+    odom_frame_id: "odom"
+    cmd_vel_in_topic: "cmd_vel"
+    cmd_vel_out_topic: "cmd_vel_safe"
+    state_topic: "collision_monitor_state"
+    transform_tolerance: 1.0
+    source_timeout: 2.0
+    base_shift_correction: true
+    stop_pub_timeout: 2.0
+    polygons: ["StopZone", "SlowdownZone"]
+    StopZone:
+      type: "polygon"
+      points: [0.55, 0.42, 0.55, -0.42, -0.55, -0.42, -0.55, 0.42]
+      action_type: "stop"
+      max_points: 3
+      visualize: true
+      polygon_pub_topic: "polygon_stop"
+    SlowdownZone:
+      type: "polygon"
+      points: [0.95, 0.82, 0.95, -0.82, -0.95, -0.82, -0.95, 0.82]
+      action_type: "slowdown"
+      max_points: 3
+      slowdown_ratio: 0.3
+      visualize: true
+      polygon_pub_topic: "polygon_slowdown"
+    observation_sources: ["scan"]
+    scan:
+      type: "scan"
+      topic: "/scan_fused"              # v13: /scan_filtered -> /scan_fused (consistency)
+      min_range: 0.10
+      max_range: 10.0

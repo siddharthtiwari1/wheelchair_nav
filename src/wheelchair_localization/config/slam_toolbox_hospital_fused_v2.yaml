@@ -1,0 +1,130 @@
+# ============================================================================
+# SLAM Toolbox - HOSPITAL FUSED V2: RANGE-CAPPED 15m + CAMERA OBSTACLES
+# ============================================================================
+# Created: 2026-03-08
+#
+# DO NOT EDIT — create a new versioned file (e.g., slam_toolbox_hospital_fused_v3.yaml)
+#
+# Based on: slam_toolbox_fused_v21.yaml (proven v11 base + camera occupancy)
+#
+# WHY 15m (not 25m):
+#   Same reasoning as slam_toolbox_hospital_lidar_v3.yaml — see that file header.
+#   99.3% of scan points are <15m. Far points caused rotation failure at 25m.
+#   Fused scans add camera obstacles at 0.3-3.5m — more close-range features
+#   further stabilize matching during rotation.
+#
+# V1 (25m): Same rotation problem as lidar-only — not tested but expected to fail
+# V2 (15m): Safe compromise, camera obstacles add rotation stability
+#
+# TOTAL changes from proven v21 baseline: 2 (V7 rule)
+#   1. max_laser_range: 8.0 → 15.0 (hospital corridors, rotation-safe)
+#   2. loop_search_maximum_distance: 15.0 → 30.0 (hospital long corridors)
+#
+# Paired with: wheelchair_slam_mapping.launch.py hospital_mode:=true use_fused_slam:=true
+#              + scan_fusion_v9.py (camera wins if closer)
+# ============================================================================
+
+slam_toolbox:
+  ros__parameters:
+
+    # ========================================================================
+    # SOLVER CONFIGURATION (identical to v21)
+    # ========================================================================
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: HuberLoss
+
+    # ========================================================================
+    # ROS PARAMETERS
+    # ========================================================================
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan_fused              # Fused: lidar + 3 cameras
+    use_map_saver: true
+    mode: mapping
+
+    resolution: 0.02
+
+    # ========================================================================
+    # PERFORMANCE PARAMETERS
+    # ========================================================================
+    debug_logging: false
+    throttle_scans: 1
+
+    transform_publish_period: 0.01
+    map_update_interval: 0.25
+    minimum_time_interval: 0.03
+
+    max_laser_range: 15.0             # *** HOSPITAL V2: rotation-safe (was 8.0→25.0→15.0) ***
+    transform_timeout: 0.3
+    tf_buffer_duration: 45.0
+    stack_size_to_use: 40000000
+    enable_interactive_mode: true
+
+    # ========================================================================
+    # OCCUPANCY GRID — CAMERA PERSISTENCE (from v21)
+    # ========================================================================
+    min_pass_through: 4
+    occupancy_threshold: 0.1
+
+    # ========================================================================
+    # MOVEMENT THRESHOLDS (identical to v21)
+    # ========================================================================
+    use_scan_matching: true
+    use_scan_barycenter: true
+
+    minimum_travel_distance: 0.10
+    minimum_travel_heading: 0.03
+
+    scan_buffer_size: 5
+    scan_buffer_maximum_scan_distance: 10.0
+
+    # ========================================================================
+    # SCAN MATCHING QUALITY (identical to v21)
+    # ========================================================================
+    link_match_minimum_response_fine: 0.50
+    link_scan_maximum_distance: 0.8
+
+    # ========================================================================
+    # LOOP CLOSURE — HOSPITAL
+    # ========================================================================
+    do_loop_closing: true
+    loop_search_maximum_distance: 30.0   # HOSPITAL: long corridors
+    loop_match_minimum_chain_size: 5
+    loop_match_maximum_variance_coarse: 4.0
+    loop_match_minimum_response_coarse: 0.30
+    loop_match_minimum_response_fine: 0.35
+
+    # ========================================================================
+    # CORRELATION SEARCH SPACE — JETSON PROVEN
+    # ========================================================================
+    correlation_search_space_dimension: 0.35
+    correlation_search_space_resolution: 0.005
+    correlation_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # LOOP CLOSURE CORRELATION (identical to v21)
+    # ========================================================================
+    loop_search_space_dimension: 10.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # VARIANCE PENALTIES (identical to v21)
+    # ========================================================================
+    distance_variance_penalty: 0.90
+    angle_variance_penalty: 0.90
+
+    # ========================================================================
+    # SCAN MATCHER FINE-TUNING (identical to v21)
+    # ========================================================================
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.174
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.85
+    minimum_distance_penalty: 0.85
+    use_response_expansion: true

@@ -1,0 +1,126 @@
+<!--
+WHEELCHAIR ROBUST NAVIGATION BEHAVIOR TREE - OPTIMIZED
+=======================================================
+OPTIMIZED by Navigation Scientist for:
+- BACKUP-FIRST recovery (wheelchair backs up easier than spinning)
+- Fast goal convergence with smooth deceleration
+- Aggressive obstacle avoidance with quick stuck detection
+
+KEY DESIGN PRINCIPLES (from Nav2 docs):
+1. RoundRobin cycles through different recoveries each failure
+2. Backup is tried BEFORE spinning (wheelchair-friendly)
+3. Time limits prevent infinite recovery attempts
+4. Clear costmaps between physical recoveries
+
+RECOVERY SEQUENCE (wheelchair-optimized order):
+1. Backup 25cm (5s) - FIRST! Most common stuck scenario
+2. Clear costmaps (~0.3s) - Remove stale data
+3. Wait 2.0s - Let dynamic obstacles move
+4. Spin 60 deg CW (5s) - Look for alternatives (smaller angle)
+5. Backup 35cm (6s) - Longer backup if spin didn't help
+6. Spin 60 deg CCW (5s) - Try opposite direction
+7. Clear + Backup 50cm (8s) - Last resort aggressive recovery
+
+WHY BACKUP FIRST:
+- Wheelchair with passenger is difficult to spin
+- Most "stuck" situations need backing away from obstacle
+- Spinning in tight spaces risks hitting more obstacles
+
+References:
+- Nav2 Docs: https://docs.nav2.org/behavior_trees/trees/nav_to_pose_recovery.html
+- RPP Tuning: https://docs.nav2.org/configuration/packages/configuring-regulated-pp.html
+
+Created: 2026-01-13
+-->
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+
+    <!-- Main navigation with 7 recovery attempts (matches recovery stages) -->
+    <RecoveryNode number_of_retries="7" name="NavigateRecovery">
+
+      <!-- Primary navigation pipeline -->
+      <PipelineSequence name="NavigateWithReplanning">
+
+        <!-- =================================================================
+             PATH PLANNING - 1.5Hz replanning for dynamic environments
+             ================================================================= -->
+        <RateController hz="1.5">
+          <RecoveryNode number_of_retries="1" name="ComputePathRecoveryNode">
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"
+                               error_code_id="{compute_path_error_code}"/>
+            <!-- If planning fails, clear global costmap once -->
+            <ClearEntireCostmap name="ClearGlobalOnPlanFail"
+              service_name="global_costmap/clear_entirely_global_costmap"/>
+          </RecoveryNode>
+        </RateController>
+
+        <!-- =================================================================
+             PATH FOLLOWING - With single recovery attempt
+             ================================================================= -->
+        <RecoveryNode number_of_retries="1" name="FollowPathRecoveryNode">
+          <FollowPath path="{path}" controller_id="FollowPath"
+                      goal_checker_id="general_goal_checker"
+                      error_code_id="{follow_path_error_code}"/>
+          <!-- If following fails, clear local costmap -->
+          <ClearEntireCostmap name="ClearLocalOnFollowFail"
+            service_name="local_costmap/clear_entirely_local_costmap"/>
+        </RecoveryNode>
+
+      </PipelineSequence>
+
+      <!-- =================================================================
+           RECOVERY ACTIONS - RoundRobin with BACKUP-FIRST Strategy
+
+           WHEELCHAIR-OPTIMIZED ORDER:
+           1. Backup first (most common need)
+           2. Clear costmaps (cheap, removes stale data)
+           3. Wait (dynamic obstacles)
+           4. Spin CW (smaller angle for tight spaces)
+           5. Longer backup (if spin didn't help)
+           6. Spin CCW (try other direction)
+           7. Aggressive clear+backup (last resort)
+           ================================================================= -->
+      <ReactiveFallback name="RecoveryFallback">
+        <!-- Check if goal was updated - skip recovery if so -->
+        <GoalUpdated/>
+
+        <!-- Recovery sequence - CYCLES through each on failure (RoundRobin!) -->
+        <RoundRobin name="RecoveryActions">
+
+          <!-- Recovery 1: BACKUP FIRST - Most common stuck scenario (slow + short) -->
+          <BackUp backup_dist="0.15" backup_speed="0.05" time_allowance="3.0"/>
+
+          <!-- Recovery 2: Clear costmaps (fast - removes stale obstacles) -->
+          <Sequence name="CostmapClearRecovery">
+            <ClearEntireCostmap name="ClearGlobalCostmap"
+              service_name="global_costmap/clear_entirely_global_costmap"/>
+            <ClearEntireCostmap name="ClearLocalCostmap"
+              service_name="local_costmap/clear_entirely_local_costmap"/>
+          </Sequence>
+
+          <!-- Recovery 3: Wait for dynamic obstacles to move -->
+          <Wait wait_duration="2.0"/>
+
+          <!-- Recovery 4: TINY spin CW (30 deg - just enough to change approach) -->
+          <Spin spin_dist="0.52" time_allowance="3.0"/>
+
+          <!-- Recovery 5: Longer backup if spin didn't help (still slow) -->
+          <BackUp backup_dist="0.20" backup_speed="0.05" time_allowance="4.0"/>
+
+          <!-- Recovery 6: TINY spin CCW (30 deg) -->
+          <Spin spin_dist="-0.52" time_allowance="3.0"/>
+
+          <!-- Recovery 7: Last resort - clear and aggressive backup -->
+          <Sequence name="AggressiveRecovery">
+            <ClearEntireCostmap name="ClearBeforeAggressiveBackup"
+              service_name="local_costmap/clear_entirely_local_costmap"/>
+            <BackUp backup_dist="0.25" backup_speed="0.05" time_allowance="5.0"/>
+          </Sequence>
+
+        </RoundRobin>
+      </ReactiveFallback>
+
+    </RecoveryNode>
+
+  </BehaviorTree>
+</root>

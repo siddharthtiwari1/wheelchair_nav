@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd"
+            schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>wheelchair_mono_depth</name>
+  <version>0.1.0</version>
+  <description>Monocular depth estimation pipeline for wheelchair navigation.
+    Collects paired RGB-depth data from RealSense cameras, fine-tunes
+    Depth Anything V2, and provides inference nodes to replace hardware
+    stereo depth with learned monocular depth.</description>
+  <maintainer email="s24035@students.iitmandi.ac.in">sidd</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>message_filters</depend>
+  <depend>tf2_ros</depend>
+  <depend>std_msgs</depend>
+
+  <exec_depend>realsense2_camera</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

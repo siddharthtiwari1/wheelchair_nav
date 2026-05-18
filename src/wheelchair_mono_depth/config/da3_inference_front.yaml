@@ -1,0 +1,13 @@
+# Depth Anything V3 inference parameters — front D455 camera
+# Used by: depth_comparison_test.launch.py
+# DO NOT EDIT — create a new versioned file (e.g., da3_inference_front_v2.yaml)
+da3_depth_node:
+  ros__parameters:
+    model_name: "DA3METRIC-LARGE"
+    max_depth: 6.0
+    inference_hz: 6.0
+    rgb_topic: "/camera/color/image_raw"
+    camera_info_topic: "/camera/depth/camera_info"
+    output_depth_topic: "/camera/mono_depth/image_raw"
+    output_info_topic: "/camera/mono_depth/camera_info"
+    pointcloud_topic: "/camera/mono_depth/points"

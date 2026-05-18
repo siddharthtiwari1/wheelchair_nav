@@ -1,0 +1,136 @@
+# ============================================================================
+# SLAM Toolbox - FUSED SCAN V5 (temporal persistence + tight SLAM)
+# ============================================================================
+# Created: 2026-02-24
+#
+# Key change: scan_fusion_v2 now has TEMPORAL PERSISTENCE FILTER — camera
+# data must appear in 2+ consecutive scans in the same bin. This eliminates
+# transient noise, making fused scans much closer to lidar quality.
+#
+# With cleaner input, SLAM params can be TIGHTER (closer to lidar-only config):
+#   - coarse_search_angle_offset: 0.10 → 0.05 (2.9° — IMU very trustworthy)
+#   - angle_variance_penalty: 0.30 → 0.25 (even stronger angular anchor)
+#   - smear_deviation: 0.045 → 0.03 (less blur — cleaner scans need less)
+#   - search_dimension: 0.50 → 0.40 (tighter search with clean input)
+#   - scan_buffer_size: 7 → 10 (more context — safe with clean scans)
+#   - minimum_time_interval: 0.50 → 0.30 (process more clean scans)
+#   - link_match_response: 0.30 → 0.35 (tighter with clean scans)
+#
+# Paired with: scan_fusion_v2 (temporal persistence + gradient filter +
+#              margin=0.25, pts=4, range=2.0, no gap-fill, 5s warmup)
+# SLAM mode:   async
+# Previous:    slam_toolbox_fused_v4.yaml (no temporal filter, loose params)
+#
+# DO NOT EDIT — create a new versioned file instead
+# ============================================================================
+
+slam_toolbox:
+  ros__parameters:
+
+    # ========================================================================
+    # SOLVER
+    # ========================================================================
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: HuberLoss
+
+    # ========================================================================
+    # ROS PARAMETERS
+    # ========================================================================
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan_fused
+    use_map_saver: true
+    mode: mapping
+
+    # 0.03m — with temporal filter, depth noise within one cell
+    resolution: 0.03
+
+    # ========================================================================
+    # PERFORMANCE
+    # ========================================================================
+    debug_logging: false
+    throttle_scans: 1
+
+    transform_publish_period: 0.02
+    map_update_interval: 2.0
+    # Process ~3 scans/sec. Cleaner scans = safe to process more.
+    # Was 0.50 (v4, noisy). Lidar-only uses 0.03.
+    minimum_time_interval: 0.30
+
+    max_laser_range: 8.0
+    transform_timeout: 0.2
+    tf_buffer_duration: 45.0
+    stack_size_to_use: 40000000
+    enable_interactive_mode: true
+
+    # ========================================================================
+    # MOVEMENT THRESHOLDS
+    # ========================================================================
+    use_scan_matching: true
+    use_scan_barycenter: true
+
+    minimum_travel_distance: 0.15
+    minimum_travel_heading: 0.10
+
+    # 10 scans × 0.15m = 1.5m context. Safe with temporal filter.
+    scan_buffer_size: 10
+    scan_buffer_maximum_scan_distance: 8.0
+
+    # ========================================================================
+    # SCAN MATCHING — TIGHTER WITH CLEAN INPUT
+    # ========================================================================
+    # Temporal filter makes scans close to lidar quality.
+    # 0.35 rejects marginal matches while accepting clean ones.
+    link_match_minimum_response_fine: 0.35
+    link_scan_maximum_distance: 1.0
+
+    # ========================================================================
+    # LOOP CLOSURE
+    # ========================================================================
+    do_loop_closing: true
+    loop_search_maximum_distance: 15.0
+    loop_match_minimum_chain_size: 5
+    loop_match_maximum_variance_coarse: 4.0
+    loop_match_minimum_response_coarse: 0.40
+    loop_match_minimum_response_fine: 0.45
+
+    # ========================================================================
+    # CORRELATION SEARCH SPACE — TIGHT
+    # ========================================================================
+    # 0.40m search: with temporal filter + strong odom, match is within 0.2m
+    correlation_search_space_dimension: 0.40
+    correlation_search_space_resolution: 0.01
+    # 0.03 smear at 0.03 res = sigma 1.0 cells. Clean scans need less blur.
+    correlation_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # LOOP CLOSURE CORRELATION
+    # ========================================================================
+    loop_search_space_dimension: 10.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # VARIANCE PENALTIES — MAXIMUM ODOM TRUST
+    # ========================================================================
+    # penalty = 1.0 - (0.2 * dist² / σ²)
+    # Lower σ = stronger penalty = more odom trust
+    distance_variance_penalty: 0.30
+    angle_variance_penalty: 0.25      # Even tighter than v4 (0.30) — prevents rotation
+    minimum_distance_penalty: 0.50
+    minimum_angle_penalty: 0.90
+
+    # ========================================================================
+    # SCAN MATCHER — TIGHT ANGULAR SEARCH
+    # ========================================================================
+    fine_search_angle_offset: 0.00349
+    # 0.05 rad = 2.9° — very tight with good IMU. Prevents angular drift.
+    # v4 used 0.10 (5.7°). Lidar-only uses 0.174 (10°, doesn't need tight).
+    coarse_search_angle_offset: 0.05
+    coarse_angle_resolution: 0.0349
+    use_response_expansion: true

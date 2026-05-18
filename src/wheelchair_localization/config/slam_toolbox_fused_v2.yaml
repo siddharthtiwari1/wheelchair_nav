@@ -1,0 +1,128 @@
+# ============================================================================
+# SLAM Toolbox - FUSED SCAN V2 (scan_fusion_v2 + research-tuned SLAM)
+# ============================================================================
+# Created: 2026-02-23
+#
+# Research-backed config for scan_fusion_v2 + SLAM Toolbox combination.
+# Sources: SLAM Toolbox source code analysis, GitHub issues #239 #334 #499
+#          #617 #683, Husarion/TurtleBot4 configs, community tuning guides.
+#
+# Paired with: scan_fusion_v2 (margin=0.25, pts_per_bin=3, max_range=3.0)
+# Previous:    slam_toolbox_fused_robust.yaml (robust_scan_fusion — flickered)
+#
+# KEY CHANGES FROM wc_ws PROVEN CONFIG:
+#   - resolution: 0.02 → 0.03 (noise smoothing, per Issue #408)
+#   - scan_buffer_size: 5 → 30 (averages out per-scan noise, default=70)
+#   - smear_deviation: 0.05 → 0.10 (matches default, absorbs 3-5cm fusion jitter)
+#   - minimum_time_interval: 0.03 → 0.10 (fewer noisy scans processed)
+#   - map_update_interval: 0.25 → 2.0 (saves CPU, doesn't affect SLAM quality)
+#   - transform_publish_period: 0.01 → 0.02 (50Hz TF is plenty)
+#   - async mode recommended (launch file uses async_slam_toolbox_node)
+#
+# DO NOT EDIT — create a new versioned file instead
+# ============================================================================
+
+slam_toolbox:
+  ros__parameters:
+
+    # ========================================================================
+    # SOLVER
+    # ========================================================================
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: HuberLoss        # Outlier-robust (rejects noisy residuals)
+
+    # ========================================================================
+    # ROS PARAMETERS
+    # ========================================================================
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan_fused
+    use_map_saver: true
+    mode: mapping
+
+    # Coarser than lidar-only (0.02) to smooth fused scan noise
+    resolution: 0.03
+
+    # ========================================================================
+    # PERFORMANCE — TUNED FOR FUSED SCANS
+    # ========================================================================
+    debug_logging: false
+    throttle_scans: 1
+
+    transform_publish_period: 0.02    # 50Hz TF (100Hz unnecessary, saves CPU)
+    map_update_interval: 2.0          # Visual only — doesn't affect SLAM quality
+    minimum_time_interval: 0.10       # Process fewer scans (reduces noise accumulation)
+
+    max_laser_range: 8.0              # Depth cameras unreliable >5m; limit fused range
+    transform_timeout: 0.3
+    tf_buffer_duration: 45.0
+    stack_size_to_use: 40000000
+    enable_interactive_mode: true
+
+    # ========================================================================
+    # MOVEMENT THRESHOLDS
+    # ========================================================================
+    use_scan_matching: true
+    use_scan_barycenter: true
+
+    minimum_travel_distance: 0.15     # 15cm (was 10cm — fewer nodes = less noise)
+    minimum_travel_heading: 0.10      # ~5.7 degrees (was 0.03 = 1.7°)
+
+    # Larger buffer averages out per-scan camera noise
+    # Default=70, was 5. Each noisy scan contributes 1/30 = 3% (was 20%)
+    scan_buffer_size: 30
+    scan_buffer_maximum_scan_distance: 8.0
+
+    # ========================================================================
+    # SCAN MATCHING
+    # ========================================================================
+    link_match_minimum_response_fine: 0.40   # Slightly relaxed for fused noise
+    link_scan_maximum_distance: 1.0          # Slightly wider for fused scans
+
+    # ========================================================================
+    # LOOP CLOSURE — TIGHTENED (noisy scans can false-trigger)
+    # ========================================================================
+    do_loop_closing: true
+    loop_search_maximum_distance: 15.0
+    loop_match_minimum_chain_size: 5
+    loop_match_maximum_variance_coarse: 4.0
+    loop_match_minimum_response_coarse: 0.40   # Tighter (was 0.30) — prevent false loops
+    loop_match_minimum_response_fine: 0.45     # Tighter (was 0.35) — prevent false loops
+
+    # ========================================================================
+    # CORRELATION SEARCH SPACE
+    # ========================================================================
+    correlation_search_space_dimension: 0.75   # Tighter (was 1.0) — trust EKF more
+    correlation_search_space_resolution: 0.01
+    correlation_search_space_smear_deviation: 0.10  # Absorbs 3-5cm fusion jitter (was 0.05)
+
+    # ========================================================================
+    # LOOP CLOSURE CORRELATION
+    # ========================================================================
+    loop_search_space_dimension: 10.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # VARIANCE PENALTIES — TRUST EKF ODOMETRY
+    # ========================================================================
+    # 0.90 = gentle penalty (don't trust odom much, let matcher wander)
+    # Good EKF should use lower values, but 0.90 is proven in wc_ws
+    # Keeping 0.90 for compatibility — reduces risk of breaking what worked
+    distance_variance_penalty: 0.90
+    angle_variance_penalty: 0.90
+
+    # ========================================================================
+    # SCAN MATCHER FINE-TUNING
+    # ========================================================================
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.349     # 20° (was 0.174=10°) — wider angular search
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.85
+    minimum_distance_penalty: 0.85
+    use_response_expansion: true

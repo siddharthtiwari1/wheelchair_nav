@@ -1,0 +1,100 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/RobotModel
+      Description Topic:
+        Value: /robot_description
+      Enabled: true
+      Name: RobotModel
+      TF Prefix: ""
+
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: false
+        base_link:
+          Value: true
+        odom:
+          Value: true
+        logitech_frame:
+          Value: true
+
+    - Class: rviz_default_plugins/Odometry
+      Topic:
+        Value: /odometry/filtered
+        Reliability Policy: Best Effort
+      Enabled: true
+      Name: Odometry Trail
+      Keep: 500
+      Position Tolerance: 0.01
+      Angle Tolerance: 0.01
+      Shape:
+        Value: Arrow
+      Covariance:
+        Value: false
+      Arrow Length: 0.1
+
+    - Class: rviz_default_plugins/Image
+      Topic:
+        Value: /logitech/image_raw
+        Reliability Policy: Best Effort
+      Enabled: true
+      Name: Logitech Camera
+      Max Rate: 15
+      Transport Hint: raw
+      Queue Size: 1
+
+    - Class: rviz_default_plugins/Grid
+      Enabled: true
+      Name: Grid
+      Cell Size: 1
+      Line Style:
+        Value: Lines
+      Color: 160; 160; 164
+      Plane Cell Count: 20
+      Reference Frame: odom
+
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: odom
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Measure
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/ThirdPersonFollower
+      Distance: 5
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05
+      Name: Current View
+      Near Clip Distance: 0.01
+      Pitch: 0.5
+      Target Frame: base_link
+      Value: ThirdPersonFollower
+      Yaw: 3.14
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 800
+  Width: 1200
+  X: 100
+  Y: 100
+  Logitech Camera:
+    collapsed: false

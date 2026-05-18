@@ -1,0 +1,147 @@
+# ============================================================================
+# SLAM Toolbox - FUSED v16: CAMERA OBSTACLE PERSISTENCE
+# ============================================================================
+# Created: 2026-02-25
+#
+# DO NOT EDIT — create a new versioned file (e.g., slam_toolbox_fused_v17.yaml)
+#
+# Based on: slam_toolbox_fused_v15.yaml (proven fused baseline)
+#
+# PROBLEM: Camera obstacles (table legs, chairs at 1.3m) appear in fused scan
+# but vanish from SLAM map. Root cause: adjacent lidar bins ray-trace THROUGH
+# camera-occupied cells, marking them FREE. With min_pass_through=2 (default),
+# just 2 pass-through rays erase a camera obstacle cell.
+#
+# CHANGES FROM v15 (2 params — follows ≤2 rule):
+#
+#   1. min_pass_through: 2 → 4
+#      Cells need 4+ free-space ray passes before being cleared to free.
+#      Camera obstacle cells (table legs, chairs) get 2-3 occupied hits per
+#      scan from camera bins. With min_pass_through=2, 2 adjacent lidar rays
+#      erase them immediately. With 4, camera obstacles survive long enough
+#      for occupied evidence to accumulate across multiple scans.
+#      Walls/corridors unaffected (hundreds of pass-through rays).
+#      Risk: Very low — slightly slower free-space clearing, negligible at 10Hz.
+#
+#   2. correlation_search_space_smear_deviation: 0.03 → 0.05
+#      Camera bins have ranges that differ from map walls (camera closer).
+#      Tight smear=0.03 penalizes this mismatch in the correlator.
+#      Smear=0.05 makes matching more tolerant of the 5-7% camera bins
+#      without degrading wall quality (at 0.02m resolution, 5cm vs 3cm
+#      blur is < 2 cells).
+#
+# KEPT FROM v15:
+#   - distance_variance_penalty: 0.70 (diagonal motion compromise from v13)
+#   - max_laser_range: 8.0 (proven, no ray streaks)
+#   - All other params identical to proven v15/v11 chain
+#
+# Also sets (previously at defaults, now explicit):
+#   - occupancy_threshold: 0.1 (default — keep low so camera obstacles visible)
+#
+# Paired with: scan_fusion_v7.py (MIN fusion + MultiThreadedExecutor)
+# ============================================================================
+
+slam_toolbox:
+  ros__parameters:
+
+    # ========================================================================
+    # SOLVER CONFIGURATION
+    # ========================================================================
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: HuberLoss
+
+    # ========================================================================
+    # ROS PARAMETERS
+    # ========================================================================
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan_fused
+    use_map_saver: true
+    mode: mapping
+
+    resolution: 0.02
+
+    # ========================================================================
+    # PERFORMANCE PARAMETERS
+    # ========================================================================
+    debug_logging: false
+    throttle_scans: 1
+
+    transform_publish_period: 0.01    # 100Hz TF
+    map_update_interval: 0.25         # Fast map updates
+    minimum_time_interval: 0.03       # 30ms
+
+    max_laser_range: 8.0              # Proven in v11/v15 (no ray streaks)
+    transform_timeout: 0.3
+    tf_buffer_duration: 45.0
+    stack_size_to_use: 40000000
+    enable_interactive_mode: true
+
+    # ========================================================================
+    # OCCUPANCY GRID PARAMETERS — KEY v16 CHANGES
+    # ========================================================================
+    min_pass_through: 4               # v16 CHANGE: 2 → 4 (camera obstacle persistence)
+    occupancy_threshold: 0.1          # Explicit (was default) — low = camera obstacles visible
+
+    # ========================================================================
+    # MOVEMENT THRESHOLDS
+    # ========================================================================
+    use_scan_matching: true
+    use_scan_barycenter: true
+
+    minimum_travel_distance: 0.10     # 10cm
+    minimum_travel_heading: 0.03      # ~1.7 degrees
+
+    scan_buffer_size: 5
+    scan_buffer_maximum_scan_distance: 10.0
+
+    # ========================================================================
+    # SCAN MATCHING QUALITY
+    # ========================================================================
+    link_match_minimum_response_fine: 0.50
+    link_scan_maximum_distance: 0.8
+
+    # ========================================================================
+    # LOOP CLOSURE
+    # ========================================================================
+    do_loop_closing: true
+    loop_search_maximum_distance: 15.0
+    loop_match_minimum_chain_size: 5
+    loop_match_maximum_variance_coarse: 4.0
+    loop_match_minimum_response_coarse: 0.30
+    loop_match_minimum_response_fine: 0.35
+
+    # ========================================================================
+    # CORRELATION SEARCH SPACE
+    # ========================================================================
+    correlation_search_space_dimension: 0.35
+    correlation_search_space_resolution: 0.005
+    correlation_search_space_smear_deviation: 0.05    # v16 CHANGE: 0.03 → 0.05 (fused scan tolerance)
+
+    # ========================================================================
+    # LOOP CLOSURE CORRELATION
+    # ========================================================================
+    loop_search_space_dimension: 10.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # VARIANCE PENALTIES
+    # ========================================================================
+    distance_variance_penalty: 0.70   # From v13: diagonal motion fix
+    angle_variance_penalty: 0.90
+
+    # ========================================================================
+    # SCAN MATCHER FINE-TUNING
+    # ========================================================================
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.174
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.85
+    minimum_distance_penalty: 0.85
+    use_response_expansion: true

@@ -1,0 +1,55 @@
+# ============================================================================
+# HOSPITAL LASER FILTER CHAIN V2 — 30m RANGE
+# ============================================================================
+# Created: 2026-03-09
+#
+# DO NOT EDIT — create a new versioned file (e.g., laser_filter_hospital_v3.yaml)
+#
+# Based on: laser_filter_hospital.yaml (25m)
+#
+# CHANGES FROM laser_filter_hospital.yaml:
+#   1. Range filter upper_threshold: 25.0 → 30.0 (full corridor visibility)
+#   2. Speckle filter max_range: 25.0 → 30.0 (match range filter)
+#
+# RPLidar S3 specs: 0.1m–40m range, 30m is within reliable operating zone
+# At 30m, adjacent points are ~6cm apart (3200 pts / 360° = 0.11°/pt)
+#
+# Paired with: slam_toolbox_hospital_lidar_v4.yaml + hospital_mode:=true
+# ============================================================================
+
+laser_filter:
+  ros__parameters:
+
+    # ========================================================================
+    # FILTER 1: Range Filter — 30m hospital range
+    # ========================================================================
+    filter1:
+      name: range_filter
+      type: laser_filters/LaserScanRangeFilter
+      params:
+        lower_threshold: 0.15      # 15cm min (avoid self-reflection)
+        upper_threshold: 30.0      # 30m — full hospital corridor range
+        use_message_range_limits: false
+
+    # ========================================================================
+    # FILTER 2: Speckle Filter — Remove isolated noise points
+    # ========================================================================
+    filter2:
+      name: speckle_filter
+      type: laser_filters/LaserScanSpeckleFilter
+      params:
+        filter_type: 0             # 0 = distance-based
+        max_range: 30.0            # Match range filter
+        max_range_difference: 0.15 # 15cm max difference to neighbors
+        filter_window: 5           # Check 5 neighbors
+
+# ============================================================================
+# FILTER CHAIN SUMMARY
+# ============================================================================
+# Input:  /scan (raw RPLidar S3, ~3200 pts/scan at 10Hz)
+# Output: /scan_filtered (clean data for SLAM)
+#
+# Processing Order:
+# 1. Range      → Keep 0.15m – 30.0m
+# 2. Speckle    → Remove isolated noise points
+# ============================================================================

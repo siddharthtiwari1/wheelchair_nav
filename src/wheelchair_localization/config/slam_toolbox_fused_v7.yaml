@@ -1,0 +1,140 @@
+# ============================================================================
+# SLAM Toolbox - FUSED v7: MINIMAL DIFF FROM WORKING LIDAR-ONLY
+# ============================================================================
+# Created: 2026-02-24
+#
+# DO NOT EDIT — create a new versioned file (e.g., slam_toolbox_fused_v8.yaml)
+#
+# APPROACH: Copy slam_toolbox_motion_compensated.yaml (the PROVEN working
+# config) and change ONLY two things:
+#   1. scan_topic: /scan_fused  (was /scan_filtered)
+#   2. max_laser_range: 8.0     (was 12.0 — cameras don't see that far)
+#
+# WHY: Fused v1-v6 ALL failed because they changed 10+ parameters at once
+# (async mode, coarser resolution, low variance penalty, tight angle search,
+# high min_time_interval, etc.). This made it impossible to isolate what
+# broke. The fix is to start from the working config and change ONE thing.
+#
+# ROOT CAUSE OF v1-v6 FAILURES:
+#   - variance_penalty=0.25-0.30 effectively DISABLED scan matching
+#     (SLAM was dead reckoning with camera noise)
+#   - async mode dropped scans unpredictably
+#   - resolution 0.03-0.05 blurred walls
+#   - min_time_interval 0.30-0.50 threw away 90% of scans
+#   - coarse_angle_offset 0.05-0.08 was too tight to find matches
+#   - search_dimension 0.40-0.50 was too small to recover drift
+#
+# Paired with: scan_fusion_v4.py (minimal fusion — no spatial/gradient/smoothing filters)
+# ============================================================================
+
+slam_toolbox:
+  ros__parameters:
+
+    # ========================================================================
+    # SOLVER CONFIGURATION (same as v14r25)
+    # ========================================================================
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: HuberLoss
+
+    # ========================================================================
+    # ROS PARAMETERS — ONLY CHANGE: scan_topic
+    # ========================================================================
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan_fused             # CHANGED: was /scan_filtered (lidar-only)
+    use_map_saver: true
+    mode: mapping
+
+    # Resolution - keep high quality (IDENTICAL to lidar-only)
+    resolution: 0.02
+
+    # ========================================================================
+    # PERFORMANCE PARAMETERS - IDENTICAL TO LIDAR-ONLY
+    # ========================================================================
+    debug_logging: false
+    throttle_scans: 1
+
+    transform_publish_period: 0.01    # 100Hz TF
+    map_update_interval: 0.25         # Fast map updates
+    minimum_time_interval: 0.03       # 30ms - fast updates
+
+    max_laser_range: 8.0              # CHANGED: was 12.0 (cameras max ~4m, lidar alone goes further)
+    transform_timeout: 0.3            # Increased from 0.2 for fusion latency
+    tf_buffer_duration: 45.0
+    stack_size_to_use: 40000000
+    enable_interactive_mode: true
+
+    # ========================================================================
+    # MOVEMENT THRESHOLDS - IDENTICAL TO LIDAR-ONLY
+    # ========================================================================
+    use_scan_matching: true
+    use_scan_barycenter: true
+
+    minimum_travel_distance: 0.10     # 10cm
+    minimum_travel_heading: 0.03      # ~1.7 degrees
+
+    scan_buffer_size: 5               # Small buffer
+    scan_buffer_maximum_scan_distance: 10.0
+
+    # ========================================================================
+    # SCAN MATCHING QUALITY - IDENTICAL TO LIDAR-ONLY
+    # ========================================================================
+    link_match_minimum_response_fine: 0.50  # Tight matching
+    link_scan_maximum_distance: 0.8
+
+    # ========================================================================
+    # LOOP CLOSURE - IDENTICAL TO LIDAR-ONLY
+    # ========================================================================
+    do_loop_closing: true
+    loop_search_maximum_distance: 15.0
+    loop_match_minimum_chain_size: 5
+    loop_match_maximum_variance_coarse: 4.0
+    loop_match_minimum_response_coarse: 0.30
+    loop_match_minimum_response_fine: 0.35
+
+    # ========================================================================
+    # CORRELATION SEARCH SPACE - IDENTICAL TO LIDAR-ONLY
+    # ========================================================================
+    correlation_search_space_dimension: 1.0
+    correlation_search_space_resolution: 0.01
+    correlation_search_space_smear_deviation: 0.05
+
+    # ========================================================================
+    # LOOP CLOSURE CORRELATION - IDENTICAL TO LIDAR-ONLY
+    # ========================================================================
+    loop_search_space_dimension: 10.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # VARIANCE PENALTIES - IDENTICAL TO LIDAR-ONLY (0.90 = trust scan matching)
+    # ========================================================================
+    # v1-v6 used 0.25-0.30 which DISABLED scan matching. 0.90 lets SLAM do its job.
+    distance_variance_penalty: 0.90
+    angle_variance_penalty: 0.90
+
+    # ========================================================================
+    # SCAN MATCHER FINE-TUNING - IDENTICAL TO LIDAR-ONLY
+    # ========================================================================
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.174
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.85
+    minimum_distance_penalty: 0.85
+    use_response_expansion: true
+
+# ============================================================================
+# CHANGELOG
+# ============================================================================
+# 2026-02-24: Created v7 — minimal diff from working lidar-only config
+#   - ONLY scan_topic changed to /scan_fused
+#   - ONLY max_laser_range reduced to 8.0 (cameras cap at ~4m)
+#   - ALL other params IDENTICAL to slam_toolbox_motion_compensated.yaml
+#   - Uses sync_slam_toolbox_node (NOT async)
+#   - Paired with scan_fusion_v4.py (minimal fusion, no complex filters)
+# ============================================================================

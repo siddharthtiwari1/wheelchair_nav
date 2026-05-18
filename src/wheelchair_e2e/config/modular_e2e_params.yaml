@@ -1,0 +1,56 @@
+# KinoFlow v2 Modular Architecture Parameters
+# DO NOT EDIT — create a new versioned file for changes.
+kinoflow_node:
+  ros__parameters:
+    # Model version
+    model_version: "v2"  # "v1" for legacy BEV-based, "v2" for modular
+    model_path: ""       # Path to best_model.pth or TensorRT engine
+    use_tensorrt: false
+
+    # Architecture
+    scan_points: 720       # Number of polar scan bins (from /scan_fused)
+    temporal_frames: 5     # T=5 frames for dynamic encoder (500ms at 10Hz)
+    horizon: 10            # Trajectory prediction horizon (steps)
+    n_samples: 8           # K=8 multi-sample for scoring
+    n_euler_steps: 3       # ODE integration steps for flow matching
+    d_model: 128           # Transformer hidden dimension
+
+    # Velocity limits
+    v_max: 0.25   # m/s max linear velocity
+    w_max: 1.0    # rad/s max angular velocity
+
+    # Inference
+    inference_hz: 15.0
+
+    # Safety (hard limits independent of model)
+    safety_min_range: 0.3   # meters — EMERGENCY STOP below this
+    safety_slow_range: 0.6  # meters — slow down below this
+    max_accel: 0.5          # m/s² — max linear acceleration
+    max_alpha: 1.0          # rad/s² — max angular acceleration
+
+    # Scoring weights (for generate_multi_sample)
+    w_collision: 5.0
+    w_goal: 3.0
+    w_smooth: 1.0
+    w_comfort: 1.0
+    w_kinematic: 2.0
+    w_progress: 2.0
+
+    # BEV (still used for collision scoring)
+    bev_resolution: 0.05   # m/pixel
+    bev_size: 200           # pixels (200x200 = 10m x 10m)
+
+safety_clamp_node:
+  ros__parameters:
+    emergency_stop_range: 0.3
+    slowdown_range: 0.6
+    slowdown_max_v: 0.1
+    max_velocity: 0.25
+    max_angular: 1.0
+    input_topic: "/cmd_vel_raw"
+    output_topic: "/cmd_vel"
+    scan_topic: "/scan_fused"
+
+goal_manager_node:
+  ros__parameters:
+    goal_reached_threshold: 0.5  # meters

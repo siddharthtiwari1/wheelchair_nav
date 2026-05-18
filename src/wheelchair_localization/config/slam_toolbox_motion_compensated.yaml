@@ -1,0 +1,151 @@
+# ============================================================================
+# SLAM Toolbox - MOTION COMPENSATED CONFIGURATION
+# ============================================================================
+# Created: 2025-12-07
+# Updated: 2026-02-03 - Restored original proven parameters + fusion adaptations
+#
+# BASED ON: Original working git version with camera fusion adaptations
+#
+# FIXES FOR:
+#   1. Dots on both sides of walls during slow motion
+#   2. Edge artifacts connecting consecutive scan nodes
+#   3. Better slow-speed mapping quality
+#   4. Loop closure reliability
+#
+# KEY CHANGES:
+#   - Restored original fast update rates (100Hz TF, 30ms scan interval)
+#   - Restored original tight scan matching (0.50 response threshold)
+#   - Restored original variance penalties (0.90/0.90) for odom trust
+#   - Increased transform_timeout for fusion latency handling
+#   - Default: /scan_filtered (lidar-only); launch file can override to /scan_fused
+# ============================================================================
+
+slam_toolbox:
+  ros__parameters:
+
+    # ========================================================================
+    # SOLVER CONFIGURATION (same as v14r25)
+    # ========================================================================
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: HuberLoss
+
+    # ========================================================================
+    # ROS PARAMETERS
+    # ========================================================================
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan_filtered          # LiDAR-only (default — proven clean maps)
+    use_map_saver: true
+    mode: mapping
+
+    # Resolution - keep high quality
+    resolution: 0.02
+
+    # ========================================================================
+    # PERFORMANCE PARAMETERS - RESTORED ORIGINAL FAST UPDATES
+    # ========================================================================
+    debug_logging: false
+    throttle_scans: 1
+
+    transform_publish_period: 0.01    # 100Hz TF (RESTORED from original)
+
+    map_update_interval: 0.25         # Fast map updates (RESTORED from original)
+
+    # Process scans frequently - reduces motion distortion
+    minimum_time_interval: 0.03       # 30ms - fast updates (RESTORED)
+
+    max_laser_range: 12.0
+    transform_timeout: 0.3            # Increased from 0.2 for fusion latency
+    tf_buffer_duration: 45.0          # Increased from 30 for better TF availability
+    stack_size_to_use: 40000000
+    enable_interactive_mode: true
+
+    # ========================================================================
+    # MOVEMENT THRESHOLDS - MOTION-COMPENSATED (lower thresholds)
+    # ========================================================================
+    use_scan_matching: true
+    use_scan_barycenter: true
+
+    # Lower thresholds = more frequent updates at slow speed
+    minimum_travel_distance: 0.10     # 10cm (RESTORED from original)
+    minimum_travel_heading: 0.03      # ~1.7 degrees (RESTORED from original)
+
+    # Trim buffer to reduce stale scans (helps motion distortion)
+    scan_buffer_size: 5               # Small buffer (RESTORED from original)
+
+    scan_buffer_maximum_scan_distance: 10.0
+
+    # ========================================================================
+    # SCAN MATCHING QUALITY - ORIGINAL TIGHT PARAMETERS
+    # ========================================================================
+    # Original proven values - tight matching reduces false alignments
+    link_match_minimum_response_fine: 0.50  # RESTORED - tight matching
+
+    link_scan_maximum_distance: 0.8         # RESTORED - short association radius
+
+    # ========================================================================
+    # LOOP CLOSURE - ORIGINAL PROVEN PARAMETERS
+    # ========================================================================
+    do_loop_closing: true
+    loop_search_maximum_distance: 15.0
+    loop_match_minimum_chain_size: 5        # RESTORED from original
+    loop_match_maximum_variance_coarse: 4.0 # RESTORED from original
+    loop_match_minimum_response_coarse: 0.30  # RESTORED from original
+    loop_match_minimum_response_fine: 0.35    # RESTORED from original
+
+    # ========================================================================
+    # CORRELATION SEARCH SPACE - INCREASED FOR LOOP CLOSURE
+    # ========================================================================
+    # Analysis showed 0.84m drift after full loop - need search space > this
+    # Original 0.35m was too small, loop closure couldn't find matches
+    correlation_search_space_dimension: 1.0   # INCREASED for 0.84m+ drift
+    correlation_search_space_resolution: 0.01  # Coarser for speed with larger space
+    correlation_search_space_smear_deviation: 0.05  # More tolerance
+
+    # ========================================================================
+    # LOOP CLOSURE CORRELATION (same as v14r25)
+    # ========================================================================
+    loop_search_space_dimension: 10.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # VARIANCE PENALTIES - TRUST EKF ODOMETRY
+    # ========================================================================
+    # RESTORED original values - high odom trust keeps SLAM aligned with EKF
+    # EKF fuses wheel encoders + IMU = reliable odometry
+    distance_variance_penalty: 0.90   # RESTORED - anchor to EKF linear pose
+    angle_variance_penalty: 0.90      # RESTORED - anchor to IMU yaw
+
+    # ========================================================================
+    # SCAN MATCHER FINE-TUNING
+    # ========================================================================
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.174
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.85
+    minimum_distance_penalty: 0.85
+    use_response_expansion: true
+
+# ============================================================================
+# CHANGELOG
+# ============================================================================
+# 2026-02-22: Reverted scan_topic to /scan_filtered (lidar-only)
+#   - Camera fusion degrades SLAM map quality (smeared walls, phantom obstacles)
+#   - Launch file now controls scan topic via use_fused_slam argument
+#   - Lidar-only proven to produce clean, accurate maps
+#
+# 2026-02-03: Restored original proven parameters from git version
+#   - Fast TF: 100Hz (was 50Hz) - better responsiveness
+#   - Fast scans: 30ms (was 80ms) - reduces motion distortion
+#   - Tight matching: 0.50 (was 0.35) - fewer false alignments
+#   - High odom trust: 0.90/0.90 (was 0.85/0.80) - anchor to EKF
+#   - Kept transform_timeout=0.3 for fusion latency handling
+#
+# Original working config used /scan_filtered (lidar-only)
+# ============================================================================

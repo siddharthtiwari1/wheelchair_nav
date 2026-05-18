@@ -1,0 +1,36 @@
+# DO NOT EDIT — create a new versioned file if changes are needed.
+# RTX 3090 24GB optimized training config for Depth Anything V2 fine-tuning.
+# Pairs with: wheelchair_mono_depth/training/train.py
+# Changed from training_config.yaml: batch_size 8->32, num_workers 4->8,
+#   val_ratio 0.1->0.15, max_depth 10.0->6.0, epochs 30->50, added lambda_smooth
+
+training:
+  encoder: "vits"           # vits (24.8M) — best for Jetson Orin Nano 8GB deployment
+  max_depth: 6.0            # meters (wheelchair range, reduced from 10.0)
+  input_size: 518           # must be multiple of 14 (ViT patch size)
+  epochs: 50                # increased from 30 for better convergence
+  batch_size: 32            # RTX 3090 24GB can handle 32 with AMP
+  lr: 5.0e-5                # decoder learning rate
+  encoder_lr_scale: 0.1     # encoder LR = lr * 0.1 = 5e-6
+  weight_decay: 0.01
+  lambda_silog: 1.0
+  lambda_l1: 0.1
+  lambda_smooth: 0.05       # edge-aware smoothness (NEW)
+  val_ratio: 0.15           # 15% sessions for validation (increased for better eval)
+  num_workers: 8            # RTX 3090 system typically has 16+ cores
+  use_amp: true             # mixed precision (fp16)
+
+# Camera-aware confidence weighting is automatic:
+#   D455 (front, left): weight = 1.0 at all depths
+#   D435i (right): weight = min(1.0, 2.0/depth_m) beyond 2m
+
+# Example CLI usage:
+#   python -m wheelchair_mono_depth.training.train \
+#     --data_dir /home/sidd/wheelchair_nav/mono_depth_data \
+#     --output_dir /home/sidd/wheelchair_nav/checkpoints/mono_depth_v1 \
+#     --encoder vits --max_depth 6.0 --epochs 50 \
+#     --batch_size 32 --num_workers 8 --val_ratio 0.15 \
+#     --lambda_smooth 0.05 --lr 5e-5 --use_amp
+
+# Pretrained model download:
+#   vits: https://huggingface.co/depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf

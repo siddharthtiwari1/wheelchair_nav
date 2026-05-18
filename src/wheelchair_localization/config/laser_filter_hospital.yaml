@@ -1,0 +1,62 @@
+# ============================================================================
+# HOSPITAL LASER FILTER CHAIN — FULL 25m RANGE
+# ============================================================================
+# Created: 2026-03-08
+#
+# DO NOT EDIT — create a new versioned file (e.g., laser_filter_hospital_v2.yaml)
+#
+# Based on: laser_filter_robust.yaml
+#
+# CHANGES FROM laser_filter_robust.yaml:
+#   1. Range filter upper_threshold: 12.0 → 25.0 (full RPLidar S3 range for
+#      spacious hospital corridors — S3 spec is 40m, 25m is conservative)
+#   2. Speckle filter max_range: 12.0 → 25.0 (match range filter)
+#   3. Speckle filter max_range_difference: 0.12 → 0.15 (slightly wider for
+#      long-range noise — at 25m adjacent points are ~5cm apart vs ~2cm at 12m)
+#
+# Paired with: wheelchair_rtabmap_mapping.launch.py (hospital RTAB-Map SLAM)
+# ============================================================================
+
+laser_filter:
+  ros__parameters:
+
+    # ========================================================================
+    # FILTER 1: Range Filter — Full hospital range
+    # ========================================================================
+    # RPLidar S3 specs: 0.1m - 40m
+    # Hospital: 0.15m - 25.0m (captures long corridors, open wards)
+    filter1:
+      name: range_filter
+      type: laser_filters/LaserScanRangeFilter
+      params:
+        lower_threshold: 0.15      # 15cm min (avoid self-reflection)
+        upper_threshold: 25.0      # 25m — full useful range for hospital
+        use_message_range_limits: false
+
+    # ========================================================================
+    # FILTER 2: Speckle Filter — Remove isolated noise points
+    # ========================================================================
+    # At 25m, adjacent points are ~5cm apart (3200 pts / 360° = 0.11°/pt)
+    # max_range_difference widened slightly to 15cm for long-range stability
+    filter2:
+      name: speckle_filter
+      type: laser_filters/LaserScanSpeckleFilter
+      params:
+        filter_type: 0             # 0 = distance-based
+        max_range: 25.0            # Match range filter
+        max_range_difference: 0.15 # 15cm max difference to neighbors (was 12cm)
+        filter_window: 5           # Check 5 neighbors
+
+# ============================================================================
+# FILTER CHAIN SUMMARY
+# ============================================================================
+# Input:  /scan (raw RPLidar S3, ~3200 pts/scan at 10Hz)
+# Output: /scan_filtered (clean data for RTAB-Map SLAM)
+#
+# Processing Order:
+# 1. Range      → Keep 0.15m – 25.0m (hospital full range)
+# 2. Speckle    → Remove isolated noise points
+#
+# DISABLED FILTERS (same as laser_filter_robust.yaml — Jazzy SIGSEGV):
+# - Angular, Shadow, Temporal median, Box filters
+# ============================================================================

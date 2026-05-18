@@ -1,0 +1,739 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="wheelchair_description" xmlns:xacro="http://ros.org/wiki/xacro">  
+  
+  <!-- Start GZ or Ignition depending on ROS 2 Version -->
+  <xacro:arg name="is_ignition" default="true"/>
+
+  <!-- Load Simulated or Real Hardware Interfaces -->
+  <xacro:arg name="is_sim" default="true"/>
+
+  <!-- Mathematical constants (pi is already defined by xacro) -->
+
+  <!-- Include Gazebo Parameters -->
+  <xacro:include filename="$(find wheelchair_description)/urdf/wc_gazebo.xacro" /> 
+  
+  <!-- Include ros2_control Plugins -->
+  <xacro:include filename="$(find wheelchair_description)/urdf/wc_control.xacro" />
+
+  <!-- Include Multi-Camera Configuration (Left + Right cameras) -->
+  <xacro:include filename="$(find wheelchair_description)/urdf/cameras.xacro" />
+  
+  
+  <link name="base_link">
+  </link>
+  
+  <joint name="base_link_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="wheelchair_main"/>
+    <origin xyz="0 0 0.2" rpy="0 0 0"/>
+  </joint> 
+  
+  <link
+    name="wheelchair_main">
+    <inertial>
+      <origin
+        xyz="0.023007 0.0098899 0.35723"
+        rpy="0 0 0" />
+      <mass
+        value="50" />
+      <inertia
+        ixx="0.59682"
+        ixy="-1.598E-05"
+        ixz="0.20053"
+        iyy="0.9932"
+        iyz="7.2097E-05"
+        izz="0.50644" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/wheelchair_main.STL"/>
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/wheelchair_main.STL"/>
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="left_wheel">
+    <inertial>
+      <origin
+        xyz="0 -8.3267E-17 -0.016"
+        rpy="0 0 0" />
+      <mass
+        value="3.5068" />
+      <inertia
+        ixx="0.025596"
+        ixy="1.4766E-18"
+        ixz="3.4387E-17"
+        iyy="0.025596"
+        iyz="-1.1439E-19"
+        izz="0.049823" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/left_wheel.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/left_wheel.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="leftwheel"
+    type="continuous">
+    <origin
+      xyz="-0.31984 0.285 -0.00794"
+      rpy="-1.5708 0 0" />
+    <parent
+      link="wheelchair_main" />
+    <child
+      link="left_wheel" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.14"
+      upper="3.14"
+      effort="25"
+      velocity="20" />
+  </joint>
+  <link
+    name="left_encoder">
+    <inertial>
+      <origin
+        xyz="-0.0001485 -4.9468E-06 0.038366"
+        rpy="0 0 0" />
+      <mass
+        value="0.16" />
+      <inertia
+        ixx="7.5141E-06"
+        ixy="-3.4015E-09"
+        ixz="4.8456E-08"
+        iyy="7.6349E-06"
+        iyz="6.7412E-10"
+        izz="7.5873E-06" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/left_encoder.STL"/>
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/left_encoder.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="l_encoder_joint"
+    type="fixed">
+    <origin
+      xyz="0 0 -0.015366"
+      rpy="0 0 0" />
+    <parent
+      link="left_wheel" />
+    <child
+      link="left_encoder" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="right_wheel">
+    <inertial>
+      <origin
+        xyz="-1.11022302462516E-16 3.88578058618805E-16 0.0159999999999998"
+        rpy="0 0 0" />
+      <mass
+        value="3.50680611696861" />
+      <inertia
+        ixx="0.0255963516724083"
+        ixy="1.16466719109124E-18"
+        ixz="6.8967822043798E-18"
+        iyy="0.0255963516724083"
+        iyz="-9.1248246390169E-19"
+        izz="0.0498226133842181" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/right_wheel.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/right_wheel.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="rightwheel"
+    type="continuous">
+    <origin
+      xyz="-0.31984 -0.285 -0.00794"
+      rpy="-1.5708 0 0" />
+    <parent
+      link="wheelchair_main" />
+    <child
+      link="right_wheel" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.14"
+      upper="3.14"
+      effort="25"
+      velocity="30" />
+  </joint>
+  <link
+    name="right_encoder">
+    <inertial>
+      <origin
+        xyz="0.00014858 -3.8114E-07 -0.038366"
+        rpy="0 0 0" />
+      <mass
+        value="0.16" />
+      <inertia
+        ixx="7.514E-06"
+        ixy="-3.1326E-10"
+        ixz="4.8454E-08"
+        iyy="7.635E-06"
+        iyz="8.1459E-10"
+        izz="7.5873E-06" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/right_encoder.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/right_encoder.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="r_encoder_joint"
+    type="fixed">
+    <origin
+      xyz="0 0 0.015366"
+      rpy="0 0 0" />
+    <parent
+      link="right_wheel" />
+    <child
+      link="right_encoder" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  
+  <link
+    name="left_castor">
+    <inertial>
+      <origin
+        xyz="0 2.7756E-17 -0.050849"
+        rpy="0 0 0" />
+      <mass
+        value="0.11252" />
+      <inertia
+        ixx="0.00033369"
+        ixy="1.4451E-06"
+        ixz="8.6584E-21"
+        iyy="0.00018303"
+        iyz="-2.9977E-20"
+        izz="0.00016795" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/left_castor.STL"  />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/left_castor.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="leftcastor"
+    type="fixed">
+    <origin
+      xyz="0.29024 0.27855 0.053019"
+      rpy="0 0 0" />
+    <parent
+      link="wheelchair_main" />
+    <child
+      link="left_castor" />
+    <axis
+      xyz="0 0 -1" />  
+      
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+
+  <link
+    name="l_castor_wheel">
+    <inertial>
+      <origin
+        xyz="0.0004998 0 -0.052109"
+        rpy="0 0 0" />
+      <mass
+        value="1.0084" />
+      <inertia
+        ixx="0.0035383"
+        ixy="1.3326E-19"
+        ixz="-3.1067E-05"
+        iyy="0.003538"
+        iyz="-1.9603E-18"
+        izz="0.0067771" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/l_castor_wheel.STL"  />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.05" rpy="0 0 0" />
+      <geometry>
+        <sphere radius="0.1" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="leftcastorwheel"
+    type="fixed">
+    <origin
+      xyz="-0.00049873 0.051998 -0.12062"
+      rpy="-1.5708 0 0" />
+    <parent
+      link="left_castor" />
+    <child
+      link="l_castor_wheel" />
+    <axis
+      xyz="0 0 -1" />
+    <dynamics damping="0.01" friction="0.0"/>
+  </joint>
+  <link
+    name="right_castor">
+    <inertial>
+      <origin
+        xyz="0 2.2204E-16 -0.050849"
+        rpy="0 0 0" />
+      <mass
+        value="0.11252" />
+      <inertia
+        ixx="0.00033368"
+        ixy="2.0184E-06"
+        ixz="-3.0452E-20"
+        iyy="0.00018305"
+        iyz="2.6858E-20"
+        izz="0.00016795" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/right_castor.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/right_castor.STL"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="rightcastor"
+    type="fixed">
+    <origin
+      xyz="0.29024 -0.29047 0.053019"
+      rpy="0 0 0" />
+    <parent
+      link="wheelchair_main" />
+    <child
+      link="right_castor" />
+    <axis
+      xyz="0 0 -1" />
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+
+  <link
+    name="r_castor_wheel">
+    <inertial>
+      <origin
+        xyz="-0.00062904 -4.1633E-17 0.046953"
+        rpy="0 0 0" />
+      <mass
+        value="1.0084" />
+      <inertia
+        ixx="0.0035386"
+        ixy="-3.0674E-19"
+        ixz="-4.339E-05"
+        iyy="0.003538"
+        iyz="-1.399E-19"
+        izz="0.0067768" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/r_castor_wheel.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.05" rpy="0 0 0" />
+      <geometry>
+        <sphere radius="0.1" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="rcastorwheel"
+    type="fixed">
+    <origin
+      xyz="0.00062961 -0.046996 -0.12062"
+      rpy="-1.5708 0 0" />
+    <parent
+      link="right_castor" />
+    <child
+      link="r_castor_wheel" />
+    <axis
+      xyz="0 0 -1" />
+    <dynamics damping="0.01" friction="0.0"/>
+  </joint>
+  <link
+    name="lidar">
+    <inertial>
+      <origin
+        xyz="-0.017408 -0.0015843 0.028267"
+        rpy="0 0 0" />
+      <mass
+        value="0.17" />
+      <inertia
+        ixx="4.4866E-06"
+        ixy="-2.7371E-07"
+        ixz="-3.8334E-08"
+        iyy="1.115E-05"
+        iyz="-1.1322E-07"
+        izz="1.4894E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/lidar.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/lidar.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="lidar_joint"
+    type="fixed">
+    <origin
+      xyz="0.475 0.12 -0.13"
+      rpy="0 0 0" />
+    <parent
+      link="wheelchair_main" />
+    <child
+      link="lidar" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <!-- laser frame: 180° Z-rotated alias of lidar (RPLidar publishes in 'laser' frame) -->
+  <link name="laser"/>
+  <joint name="laser_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 3.14159265358979"/>
+    <parent link="lidar"/>
+    <child link="laser"/>
+  </joint>
+  <link
+    name="camera">
+    <inertial>
+      <origin
+        xyz="-0.01312 -0.00011035 3.4198E-05"
+        rpy="0 0 0" />
+      <mass
+        value="0.083345" />
+      <inertia
+        ixx="0.00010134"
+        ixy="-3.9092E-09"
+        ixz="-8.3231E-09"
+        iyy="9.5452E-06"
+        iyz="1.103E-11"
+        izz="0.00010036" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/camera.STL"  />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://wheelchair_description/meshes/camera.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="camera_joint"
+    type="fixed">
+    <origin
+      xyz="-0.41 0 1.34"
+      rpy="0 0 0" />
+    <parent
+      link="wheelchair_main" />
+    <child
+      link="camera" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <!-- RealSense D455 Camera Link (keeping D435i naming for compatibility) -->
+  <link name="camera_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.025 0.090 0.025"/>
+      </geometry>
+      <material name="camera_material">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+      </material>
+    </visual>
+  </link>
+  
+  <joint name="camera_link_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="camera"/>
+    <child link="camera_link"/>
+  </joint>
+
+  <!-- Camera Color Optical Frame (standard ROS camera frame) -->
+  <link name="camera_color_optical_frame"/>
+
+  <joint name="camera_color_optical_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+    <parent link="camera_link"/>
+    <child link="camera_color_optical_frame"/>
+  </joint>
+
+  <!-- Camera Depth Optical Frame (required for depth fusion) -->
+  <link name="camera_depth_optical_frame"/>
+
+  <joint name="camera_depth_optical_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+    <parent link="camera_link"/>
+    <child link="camera_depth_optical_frame"/>
+  </joint>
+
+  <!-- Camera Depth Frame (intermediate frame used by RealSense driver) -->
+  <link name="camera_depth_frame"/>
+
+  <joint name="camera_depth_frame_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="camera_link"/>
+    <child link="camera_depth_frame"/>
+  </joint>
+
+  <!-- IMU Link (physical IMU location in camera) -->
+  <link name="IMU">
+    <inertial>
+      <origin xyz="0 0 -0.000825" rpy="0 0 0" />
+      <mass value="0.025" />
+      <inertia
+        ixx="5.2429E-08" ixy="-1.5439E-23" ixz="1.2131E-23"
+        iyy="4.2325E-08" iyz="2.1477E-24"
+        izz="9.4317E-08" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://wheelchair_description/meshes/IMU.STL"/>
+      </geometry>
+      <material name="">
+        <color rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://wheelchair_description/meshes/IMU.STL" />
+      </geometry>
+    </collision>
+  </link>
+  
+  <!-- IMU positioned at RealSense D455 IMU location relative to camera -->
+  <joint name="IMU_joint" type="fixed">
+    <origin xyz="-0.01174 -0.00552 0.0051" rpy="0 0 0" />
+    <parent link="camera_link" />
+    <child link="IMU" />
+  </joint>
+
+  <!-- IMU Optical Frame (RealSense D455 standard orientation, keeping D435i naming) -->
+  <link name="camera_imu_optical_frame"/>
+  
+  <joint name="camera_imu_optical_joint" type="fixed">
+    <!-- RealSense D455 IMU frame: X=right, Y=down, Z=forward (optical convention) -->
+    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+    <parent link="IMU"/>
+    <child link="camera_imu_optical_frame"/>
+  </joint>
+  
+  <!-- Additional convenience frames for different frame conventions -->
+  
+  <!-- IMU Frame aligned with robot base (for EKF) -->
+  <link name="imu_link"/>
+  
+  <joint name="imu_link_joint" type="fixed">
+    <!-- Transform from camera optical frame to robot base frame convention -->
+    <!-- This transforms from camera optical (X=right, Y=down, Z=forward) -->
+    <!-- To robot base frame (X=forward, Y=left, Z=up) -->
+    <origin xyz="0 0 0" rpy="0 1.5708 1.5708"/>
+    <parent link="camera_imu_optical_frame"/>
+    <child link="imu_link"/>
+  </joint>
+
+  <!-- Simplified IMU Link directly connected to base_link (bumperbot approach) -->
+  <link name="imu_link_simple"/>
+  
+  <joint name="imu_link_simple_joint" type="fixed">
+    <!-- Direct connection to base_link - estimate IMU position relative to base_link -->
+    <!-- Based on camera position (-0.41, 0, 1.34) + IMU offset in camera -->
+    <origin xyz="-0.42 0 1.35" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="imu_link_simple"/>
+  </joint>
+
+</robot>

@@ -1,0 +1,161 @@
+# ============================================================================
+# SLAM Toolbox - FUSED v17: TUNED FOR scan_fusion_v9 (CAMERA-WINS-IF-CLOSER)
+# ============================================================================
+# Created: 2026-02-26
+#
+# DO NOT EDIT — create a new versioned file (e.g., slam_toolbox_fused_v18.yaml)
+#
+# Based on: slam_toolbox_fused_v16.yaml (camera obstacle persistence)
+#
+# CONTEXT: scan_fusion_v9 uses "camera wins if closer" logic with NO delta
+# threshold. This means MORE bins contain camera data compared to v7:
+#   - v7: ~10-15% camera bins (delta > 0.4m required)
+#   - v9: ~40-60% camera bins (any closer distance wins)
+# Camera data has ±30-68mm noise + systematic short bias from np.minimum.at.
+# Scan-to-scan consistency is lower → matcher needs more tolerance + stronger
+# odometry anchoring.
+#
+# CHANGES FROM v16 (2 params — follows <=2 rule):
+#
+#   1. correlation_search_space_smear_deviation: 0.05 → 0.07
+#      v9 replaces more lidar bins with camera data. Camera range noise
+#      (D455: ±36mm@3m, D435i: ±68mm@3m) creates frame-to-frame variation.
+#      Smear=0.05 (v16) was tuned for v7's ~10% camera bins. With v9's
+#      ~40-60% camera bins, the correlator needs wider blur to match scans
+#      that have different noise patterns each frame.
+#      At 0.02m grid resolution: 7cm blur = 3.5 cells (vs 2.5 cells at 0.05).
+#      Walls still sharp (hundreds of consistent lidar+camera hits), but
+#      isolated camera bins don't tank the correlation score.
+#
+#   2. distance_variance_penalty: 0.70 → 0.50
+#      With noisier scans, the scan matcher can find false local optima.
+#      Anchoring to EKF odometry (penalty=0.50 = SLAM Toolbox default)
+#      prevents the matcher from drifting to wrong scan alignment.
+#      At 0.50: matcher anchored within ±25cm of EKF pose.
+#      At 0.70: matcher can wander ±29cm → with noisy scans, may lock
+#      onto wrong peak.
+#      Our EKF (robust_ekf_zupt_node) is well-calibrated with ZUPT +
+#      continuous gyro recal → safe to trust odometry more.
+#
+# ALSO CHANGED (from v16, follows v12 setpoint reasoning):
+#
+#   3. max_laser_range: 8.0 → 5.0
+#      v9 cameras max at 3.0-3.5m. Lidar bins beyond 5m have NO camera
+#      data and create long rays that trace through camera-occupied cells,
+#      erasing them. At 5.0m: all rays are in the camera-augmented zone,
+#      camera obstacles persist better. Also eliminates doorway ray streaks
+#      (v12 finding). Lidar-only bins at 3.5-5.0m still contribute walls.
+#
+# KEPT FROM v16:
+#   - min_pass_through: 4 (camera obstacle persistence — essential)
+#   - occupancy_threshold: 0.1 (camera obstacles visible)
+#   - scan_buffer_size: 5 (proven)
+#   - All correlation/loop search dimensions identical
+#
+# Paired with: scan_fusion_v9.py (camera wins if closer, 3.0m side cameras)
+# ============================================================================
+
+slam_toolbox:
+  ros__parameters:
+
+    # ========================================================================
+    # SOLVER CONFIGURATION
+    # ========================================================================
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: HuberLoss
+
+    # ========================================================================
+    # ROS PARAMETERS
+    # ========================================================================
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan_fused
+    use_map_saver: true
+    mode: mapping
+
+    resolution: 0.02
+
+    # ========================================================================
+    # PERFORMANCE PARAMETERS
+    # ========================================================================
+    debug_logging: false
+    throttle_scans: 1
+
+    transform_publish_period: 0.01    # 100Hz TF
+    map_update_interval: 0.25         # Fast map updates
+    minimum_time_interval: 0.03       # 30ms
+
+    max_laser_range: 5.0              # v17 CHANGE: 8.0 → 5.0 (camera zone, no ray streaks)
+    transform_timeout: 0.3
+    tf_buffer_duration: 45.0
+    stack_size_to_use: 40000000
+    enable_interactive_mode: true
+
+    # ========================================================================
+    # OCCUPANCY GRID PARAMETERS
+    # ========================================================================
+    min_pass_through: 4               # From v16: camera obstacle persistence
+    occupancy_threshold: 0.1          # From v16: camera obstacles visible
+
+    # ========================================================================
+    # MOVEMENT THRESHOLDS
+    # ========================================================================
+    use_scan_matching: true
+    use_scan_barycenter: true
+
+    minimum_travel_distance: 0.10     # 10cm
+    minimum_travel_heading: 0.03      # ~1.7 degrees
+
+    scan_buffer_size: 5
+    scan_buffer_maximum_scan_distance: 10.0
+
+    # ========================================================================
+    # SCAN MATCHING QUALITY
+    # ========================================================================
+    link_match_minimum_response_fine: 0.50
+    link_scan_maximum_distance: 0.8
+
+    # ========================================================================
+    # LOOP CLOSURE
+    # ========================================================================
+    do_loop_closing: true
+    loop_search_maximum_distance: 15.0
+    loop_match_minimum_chain_size: 5
+    loop_match_maximum_variance_coarse: 4.0
+    loop_match_minimum_response_coarse: 0.30
+    loop_match_minimum_response_fine: 0.35
+
+    # ========================================================================
+    # CORRELATION SEARCH SPACE
+    # ========================================================================
+    correlation_search_space_dimension: 0.35
+    correlation_search_space_resolution: 0.005
+    correlation_search_space_smear_deviation: 0.07    # v17 CHANGE: 0.05 → 0.07 (v9 has more camera bins)
+
+    # ========================================================================
+    # LOOP CLOSURE CORRELATION
+    # ========================================================================
+    loop_search_space_dimension: 10.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # VARIANCE PENALTIES
+    # ========================================================================
+    distance_variance_penalty: 0.50   # v17 CHANGE: 0.70 → 0.50 (anchor to EKF, noisy scan)
+    angle_variance_penalty: 0.90
+
+    # ========================================================================
+    # SCAN MATCHER FINE-TUNING
+    # ========================================================================
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.174
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.85
+    minimum_distance_penalty: 0.85
+    use_response_expansion: true

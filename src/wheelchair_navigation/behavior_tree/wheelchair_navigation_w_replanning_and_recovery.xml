@@ -1,0 +1,82 @@
+<!--
+Wheelchair Navigation Behavior Tree with Full Recovery
+=======================================================
+This behavior tree provides robust navigation with:
+- Path replanning at 1Hz
+- Goal validity checking
+- Multi-stage recovery behaviors
+- Safety-first approach for wheelchair navigation
+
+Recovery sequence:
+1. Clear costmaps (remove stale obstacles)
+2. Wait (allow dynamic obstacles to move)
+3. Spin (look for alternative paths)
+4. Backup (get unstuck from obstacles)
+5. Retry planning
+
+Wheelchair-specific safety:
+- Slow spin (1.0 rad) for passenger comfort
+- Short backup (0.15m) to avoid collisions
+- Wait duration allows environment changes
+-->
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <RecoveryNode number_of_retries="6" name="NavigateRecovery">
+      <PipelineSequence name="NavigateWithReplanning">
+        <!-- Check if goal is valid before planning -->
+        <RecoveryNode number_of_retries="2" name="PlannerRecovery">
+          <Sequence>
+            <RateController hz="1.0">
+              <RecoveryNode number_of_retries="1" name="ComputePathRecovery">
+                <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+                <ReactiveFallback name="PathRecoveryFallback">
+                  <GoalUpdated/>
+                  <ClearEntireCostmap name="ClearGlobalCostmap-PathRecovery"
+                    service_name="global_costmap/clear_entirely_global_costmap"/>
+                </ReactiveFallback>
+              </RecoveryNode>
+            </RateController>
+          </Sequence>
+          <ClearEntireCostmap name="ClearGlobalCostmap-PlannerRecovery"
+            service_name="global_costmap/clear_entirely_global_costmap"/>
+        </RecoveryNode>
+
+        <!-- Follow the computed path with goal checking -->
+        <RecoveryNode number_of_retries="2" name="FollowPathRecovery">
+          <FollowPath path="{path}" controller_id="FollowPath" goal_checker_id="general_goal_checker"/>
+          <ReactiveFallback name="FollowPathRecoveryFallback">
+            <GoalUpdated/>
+            <ClearEntireCostmap name="ClearLocalCostmap-ControllerRecovery"
+              service_name="local_costmap/clear_entirely_local_costmap"/>
+          </ReactiveFallback>
+        </RecoveryNode>
+      </PipelineSequence>
+
+      <!-- Recovery Actions - executed in round-robin when navigation fails -->
+      <ReactiveFallback name="RecoveryFallback">
+        <GoalUpdated/>
+        <RoundRobin name="RecoveryActions">
+          <!-- Stage 1: Clear costmaps -->
+          <Sequence name="ClearingRecovery">
+            <ClearEntireCostmap name="ClearGlobalCostmap"
+              service_name="global_costmap/clear_entirely_global_costmap"/>
+            <ClearEntireCostmap name="ClearLocalCostmap"
+              service_name="local_costmap/clear_entirely_local_costmap"/>
+          </Sequence>
+          <!-- Stage 2: Wait for dynamic obstacles to move -->
+          <Wait wait_duration="3.0"/>
+          <!-- Stage 3: Spin to look for alternatives (wheelchair-safe: slow spin) -->
+          <Spin spin_dist="1.0"/>
+          <!-- Stage 4: Backup (wheelchair-safe: longer distance for real obstacles) -->
+          <BackUp backup_dist="0.30" backup_speed="0.15"/>
+          <!-- Stage 5: Spin opposite direction -->
+          <Spin spin_dist="-1.0"/>
+          <!-- Stage 6: Backup again if still stuck -->
+          <BackUp backup_dist="0.25" backup_speed="0.12"/>
+          <!-- Stage 7: Wait after recovery -->
+          <Wait wait_duration="1.5"/>
+        </RoundRobin>
+      </ReactiveFallback>
+    </RecoveryNode>
+  </BehaviorTree>
+</root>

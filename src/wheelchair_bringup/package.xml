@@ -1,0 +1,71 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>wheelchair_bringup</name>
+  <version>1.0.0</version>
+  <description>Comprehensive wheelchair system bringup with all sensors, control, and safety monitoring</description>
+  <maintainer email="sidd@wheelchair.com">sidd</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+
+  <!-- Core ROS2 dependencies -->
+  <depend>rclpy</depend>
+  <depend>launch</depend>
+  <depend>launch_ros</depend>
+  <depend>launch_testing</depend>
+
+  <!-- Message dependencies -->
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>tf2_ros</depend>
+
+  <!-- Wheelchair-specific packages -->
+  <depend>wheelchair_firmware</depend>
+  <depend>wheelchair_description</depend>
+  <depend>wheelchair_localization</depend>
+  <depend>wc_control</depend>
+
+  <!-- Sensor packages -->
+  <depend>realsense2_camera</depend>
+  <depend>imu_filter_madgwick</depend>
+  <depend>rplidar_ros</depend>
+
+  <!-- SLAM and Navigation -->
+  <depend>rtabmap_odom</depend>
+  <depend>rtabmap_slam</depend>
+  <depend>rtabmap_viz</depend>
+  <depend>robot_localization</depend>
+
+  <!-- Nav2 Navigation Stack -->
+  <depend>nav2_bringup</depend>
+  <depend>nav2_controller</depend>
+  <depend>nav2_planner</depend>
+  <depend>nav2_behaviors</depend>
+  <depend>nav2_bt_navigator</depend>
+  <depend>nav2_smoother</depend>
+  <depend>nav2_velocity_smoother</depend>
+  <depend>nav2_waypoint_follower</depend>
+  <depend>nav2_lifecycle_manager</depend>
+  <depend>nav2_map_server</depend>
+  <depend>nav2_amcl</depend>
+  <depend>wheelchair_navigation</depend>
+
+  <!-- Control system -->
+  <depend>controller_manager</depend>
+  <depend>joint_state_broadcaster</depend>
+  <depend>diff_drive_controller</depend>
+
+  <!-- Visualization -->
+  <depend>rviz2</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

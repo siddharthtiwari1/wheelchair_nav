@@ -1,0 +1,13 @@
+# Depth comparison benchmark parameters — DA3 vs DA2 vs Stereo
+# Changed from v3: DA3 native (focal scaling) vs DA2 HF (depth_scale)
+# Used by: depth_comparison_test.launch.py → depth_scan_benchmark_node
+# DO NOT EDIT — create a new versioned file (e.g., depth_comparison_benchmark_v5.yaml)
+depth_scan_benchmark:
+  ros__parameters:
+    stereo_scan_topic: "/scan_stereo"
+    mono_scan_topic: "/scan_da3"
+    mono_d2l_scan_topic: "/scan_da2"
+    output_dir: "/home/sidd/wheelchair_nav/eval_output/depth_comparison"
+    sync_slop: 0.5
+    fp_threshold_m: 0.5
+    summary_interval: 25

@@ -1,0 +1,148 @@
+# ============================================================================
+# SLAM Toolbox - FUSED SCAN V6 (spatial consistency + balanced SLAM)
+# ============================================================================
+# Created: 2026-02-24
+#
+# Rolls back v5's aggressive tightening that caused SLAM collapse.
+# v5 FAILURE: temporal persistence + camera_fill_gaps=False + tight params
+# starved SLAM of data -> fan-shaped ray artifacts -> complete map collapse.
+#
+# V6 philosophy: BALANCED between v4 (too loose) and v5 (too tight).
+# Paired with scan_fusion_v3 which has:
+#   - Spatial consistency filter (replaces v5's temporal persistence)
+#   - Gap-fill ENABLED (cameras fill lidar shadows)
+#   - Range smoothing (reduces frame-to-frame jitter)
+#   - Enhanced gradient filter (catches 1-2 bin flying pixels)
+#
+# Key changes from v5 (too tight) -> v6 (balanced):
+#   - resolution: 0.03 -> 0.05 (proven stable in v3, more forgiving)
+#   - coarse_search_angle_offset: 0.05 -> 0.08 (4.6 deg, still tight with IMU)
+#   - angle_variance_penalty: 0.25 -> 0.30 (v4 value, proven)
+#   - correlation_search_space_dimension: 0.40 -> 0.50 (v4 value, safer)
+#   - smear_deviation: 0.03 -> 0.04 (between v4 and v5)
+#   - minimum_time_interval: 0.30 -> 0.40 (process fewer noisy scans)
+#   - scan_buffer_size: 10 -> 8 (moderate context)
+#   - link_match_response: 0.35 -> 0.30 (accept more matches, prevents starvation)
+#
+# Paired with: scan_fusion_v3 (spatial filter + gap-fill + range smoothing)
+# SLAM mode:   async (better for fused scans — decouples SLAM from scan rate)
+# Previous:    slam_toolbox_fused_v5.yaml (FAILED — too aggressive)
+#
+# DO NOT EDIT — create a new versioned file instead
+# ============================================================================
+
+slam_toolbox:
+  ros__parameters:
+
+    # ========================================================================
+    # SOLVER
+    # ========================================================================
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: HuberLoss
+
+    # ========================================================================
+    # ROS PARAMETERS
+    # ========================================================================
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan_fused
+    use_map_saver: true
+    mode: mapping
+
+    # 0.05m — proven stable in v3. More forgiving than v5's 0.03m which
+    # required pixel-perfect scan matching. At 0.05m, small camera jitter
+    # stays within one cell instead of spanning two.
+    resolution: 0.05
+
+    # ========================================================================
+    # PERFORMANCE
+    # ========================================================================
+    debug_logging: false
+    throttle_scans: 1
+
+    transform_publish_period: 0.02
+    map_update_interval: 2.0
+    # Process ~2.5 scans/sec. Slightly conservative — spatial filter makes
+    # scans cleaner but gap-fill adds more data than v5.
+    minimum_time_interval: 0.40
+
+    max_laser_range: 8.0
+    transform_timeout: 0.2
+    tf_buffer_duration: 45.0
+    stack_size_to_use: 40000000
+    enable_interactive_mode: true
+
+    # ========================================================================
+    # MOVEMENT THRESHOLDS
+    # ========================================================================
+    use_scan_matching: true
+    use_scan_barycenter: true
+
+    minimum_travel_distance: 0.15
+    minimum_travel_heading: 0.10
+
+    # 8 scans x 0.15m = 1.2m context. Moderate buffer.
+    scan_buffer_size: 8
+    scan_buffer_maximum_scan_distance: 8.0
+
+    # ========================================================================
+    # SCAN MATCHING — MODERATE
+    # ========================================================================
+    # 0.30 accepts more matches than v5's 0.35. With spatial filter cleaning
+    # the scans, 0.30 is sufficient — marginal matches are rarer.
+    link_match_minimum_response_fine: 0.30
+    link_scan_maximum_distance: 1.0
+
+    # ========================================================================
+    # LOOP CLOSURE
+    # ========================================================================
+    do_loop_closing: true
+    loop_search_maximum_distance: 15.0
+    loop_match_minimum_chain_size: 5
+    loop_match_maximum_variance_coarse: 4.0
+    loop_match_minimum_response_coarse: 0.40
+    loop_match_minimum_response_fine: 0.45
+
+    # ========================================================================
+    # CORRELATION SEARCH SPACE — MODERATE
+    # ========================================================================
+    # 0.50m search: v4 value, proven stable. v5's 0.40m was too tight when
+    # combined with other aggressive params.
+    correlation_search_space_dimension: 0.50
+    correlation_search_space_resolution: 0.01
+    # 0.04 smear at 0.05 res = sigma 0.8 cells. Good balance.
+    correlation_search_space_smear_deviation: 0.04
+
+    # ========================================================================
+    # LOOP CLOSURE CORRELATION
+    # ========================================================================
+    loop_search_space_dimension: 10.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # VARIANCE PENALTIES — STRONG ODOM TRUST (v4 proven values)
+    # ========================================================================
+    # penalty = 1.0 - (0.2 * dist^2 / sigma^2)
+    # Lower sigma = stronger penalty = more odom trust
+    # v5 used 0.25 angle (too tight). v4's 0.30 is proven.
+    distance_variance_penalty: 0.30
+    angle_variance_penalty: 0.30
+    minimum_distance_penalty: 0.50
+    minimum_angle_penalty: 0.90
+
+    # ========================================================================
+    # SCAN MATCHER — MODERATE ANGULAR SEARCH
+    # ========================================================================
+    fine_search_angle_offset: 0.00349
+    # 0.08 rad = 4.6 deg. Between v4 (0.10 = 5.7 deg) and v5 (0.05 = 2.9 deg).
+    # Tight enough to prevent angular drift with good IMU, loose enough
+    # to handle minor scan matching uncertainty from camera data.
+    coarse_search_angle_offset: 0.08
+    coarse_angle_resolution: 0.0349
+    use_response_expansion: true

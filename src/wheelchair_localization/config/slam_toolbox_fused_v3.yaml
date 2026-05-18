@@ -1,0 +1,161 @@
+# ============================================================================
+# SLAM Toolbox - FUSED SCAN V3 (scan_fusion_v2 + source-code-verified params)
+# ============================================================================
+# Created: 2026-02-23
+#
+# Source-code-verified config for scan_fusion_v2 + SLAM Toolbox async mode.
+#
+# Sources: Karto SDK Mapper.cpp source analysis, SLAM Toolbox GitHub issues
+#          #239 #334 #408 #422 #499 #586 #617 #677 #683,
+#          TurtleBot4/Husarion configs, Steve Macenski's ROS Answers.
+#
+# CRITICAL FINDING — variance_penalty IS INVERTED:
+#   Higher value = LESS penalty = LESS odom trust (matcher wanders freely)
+#   Lower value  = MORE penalty = MORE odom trust (matcher anchored to EKF)
+#   Formula: penalty = 1.0 - (0.2 * dist² / variance_penalty)
+#   v2 used 0.90 thinking "high = trust odom" — WRONG. Fixed to 0.30/0.50.
+#
+# Paired with: scan_fusion_v2 (margin=0.25, pts_per_bin=3, max_range=3.0)
+# SLAM mode:   async (drops stale scans naturally, better for noisy input)
+# Previous:    slam_toolbox_fused_v2.yaml (variance penalties were inverted)
+#
+# DO NOT EDIT — create a new versioned file instead
+# ============================================================================
+
+slam_toolbox:
+  ros__parameters:
+
+    # ========================================================================
+    # SOLVER
+    # ========================================================================
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: HuberLoss        # Outlier-robust (rejects noisy residuals)
+
+    # ========================================================================
+    # ROS PARAMETERS
+    # ========================================================================
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan_fused
+    use_map_saver: true
+    mode: mapping
+
+    # 0.05m resolution — absorbs 1-3cm depth camera noise within single cells
+    # Steve Macenski: "anything below 2.5cm is probably not going to yield
+    # you any better localization quality" (Issue #408)
+    # TurtleBot4 (OAKD depth) and Husarion both use 0.04-0.05m
+    resolution: 0.05
+
+    # ========================================================================
+    # PERFORMANCE — TUNED FOR FUSED SCANS + ASYNC MODE
+    # ========================================================================
+    debug_logging: false
+    throttle_scans: 1
+
+    transform_publish_period: 0.02    # 50Hz TF (sufficient for wheelchair speed)
+    map_update_interval: 2.0          # Visual only — doesn't affect SLAM quality
+    minimum_time_interval: 0.50       # Default 0.5s — process ~2 scans/sec
+                                      # TurtleBot4 uses 0.25s. Fused input is noisy;
+                                      # fewer scans = fewer noisy nodes in pose graph
+
+    max_laser_range: 8.0              # Depth cameras unreliable >5m; lidar provides 8m+
+    transform_timeout: 0.2            # Default 0.2s. Was 0.3s but that accepts stale TF
+    tf_buffer_duration: 45.0
+    stack_size_to_use: 40000000
+    enable_interactive_mode: true
+
+    # ========================================================================
+    # MOVEMENT THRESHOLDS
+    # ========================================================================
+    use_scan_matching: true
+    use_scan_barycenter: true
+
+    minimum_travel_distance: 0.15     # 15cm — balances graph density vs noise
+    minimum_travel_heading: 0.10      # ~5.7 degrees
+
+    # Buffer of 10 scans at 0.15m travel = 1.5m geometric context
+    # Default=10. Was 5 (too sparse) then 30 (accumulates noise)
+    # 10 is the TurtleBot4 + Husarion standard
+    scan_buffer_size: 10
+    scan_buffer_maximum_scan_distance: 8.0
+
+    # ========================================================================
+    # SCAN MATCHING — RELAXED FOR FUSED NOISE
+    # ========================================================================
+    # Depth camera noise REDUCES correlation response. At 0.50 threshold,
+    # most fused-scan matches are silently rejected → falls back to pure odom.
+    # 0.30 accepts noisy but geometrically correct matches.
+    link_match_minimum_response_fine: 0.30
+    link_scan_maximum_distance: 1.0
+
+    # ========================================================================
+    # LOOP CLOSURE — TIGHTENED (noisy scans can false-trigger)
+    # ========================================================================
+    do_loop_closing: true
+    loop_search_maximum_distance: 15.0
+    loop_match_minimum_chain_size: 5
+    loop_match_maximum_variance_coarse: 4.0
+    loop_match_minimum_response_coarse: 0.40   # Tighter than default 0.30
+    loop_match_minimum_response_fine: 0.45     # Tighter than default 0.35
+
+    # ========================================================================
+    # CORRELATION SEARCH SPACE
+    # ========================================================================
+    # 0.50m search dimension (default). Was 0.75m then 1.0m.
+    # With noisy fused scans + weak penalties, large search space has
+    # spurious correlation peaks. 0.5m constrains to trust EKF more.
+    correlation_search_space_dimension: 0.50
+    correlation_search_space_resolution: 0.01
+    # Smear: Gaussian blur on correlation grid. At res=0.05, valid range
+    # is [0.025, 0.50]. 0.10 gives ~3x3 kernel — smooths depth noise.
+    correlation_search_space_smear_deviation: 0.10
+
+    # ========================================================================
+    # LOOP CLOSURE CORRELATION
+    # ========================================================================
+    loop_search_space_dimension: 10.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # VARIANCE PENALTIES — TRUST EKF ODOMETRY (SOURCE-CODE VERIFIED)
+    # ========================================================================
+    # From Mapper.cpp:
+    #   penalty = 1.0 - (GAIN * dist² / variance_penalty)
+    #   penalty = max(penalty, minimum_penalty)
+    #   response *= penalty
+    #
+    # LOWER variance_penalty = STRONGER penalty = MORE odom trust
+    # HIGHER variance_penalty = WEAKER penalty = LESS odom trust
+    #
+    # With good EKF (gyro-fused IMU + corrected encoders), use LOW values
+    # to anchor scan matcher near odom prediction. Prevents jumping to
+    # false correlation peaks caused by depth camera noise.
+    #
+    # | Distance from odom | Penalty @0.30 | Penalty @0.90 (old) |
+    # |--------------------|---------------|---------------------|
+    # | 0.25m              | 0.958         | 0.986               |
+    # | 0.50m              | 0.833         | 0.944               |
+    # | 1.0m               | clamped       | 0.778               |
+    #
+    distance_variance_penalty: 0.30      # Was 0.90 (INVERTED — 0.90 = don't trust odom!)
+    angle_variance_penalty: 0.50         # Was 0.90. IMU gives good heading.
+
+    # Penalty floors: how much the penalty can reduce the response
+    # 0.85 floor means penalty never drops below 85% — too permissive
+    # 0.50 for distance (default), 0.90 for angle (IMU is trustworthy)
+    minimum_distance_penalty: 0.50       # Was 0.85 — now penalties actually bite
+    minimum_angle_penalty: 0.90          # Keep high — IMU constrains heading well
+
+    # ========================================================================
+    # SCAN MATCHER FINE-TUNING
+    # ========================================================================
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.20     # ~11.5° — narrower with good IMU (was 0.349=20°)
+    coarse_angle_resolution: 0.0349
+    use_response_expansion: true

@@ -1,0 +1,135 @@
+# ============================================================================
+# SLAM Toolbox - FUSED v19: penalty=0.90 (trust scan matching, v9 angular comp fixes turns)
+# ============================================================================
+# Created: 2026-02-26
+#
+# DO NOT EDIT — create a new versioned file (e.g., slam_toolbox_fused_v20.yaml)
+#
+# Based on: slam_toolbox_fused_v18.yaml
+#
+# BUG FIX: v17 set smear_deviation=0.07, but SLAM Toolbox source code enforces
+# hard limit [0.0025, 0.05]. Exceeding it throws:
+#   "Mapper Error: Smear deviation too small: Must be between 0.0025 and 0.05"
+# (misleading error message — it fires for both too-small AND too-large values)
+# → std::runtime_error → SIGABRT
+#
+# CHANGES FROM v17:
+#   1. correlation_search_space_smear_deviation: 0.07 → 0.05 (hard max)
+#      0.05 is the maximum allowed. At 0.02m grid resolution, 5cm blur = 2.5 cells.
+#      This was already the v16 value and worked fine with fused scans.
+#
+# KEPT FROM v17 (these are the actual useful changes from v16):
+#   - distance_variance_penalty: 0.50 (stronger EKF anchoring for v9's noisy scans)
+#   - max_laser_range: 5.0 (camera zone, no ray streaks)
+#   - min_pass_through: 4 (camera obstacle persistence)
+#   - occupancy_threshold: 0.1 (camera obstacles visible)
+#
+# Also includes: use_lifecycle_manager: true (set in launch file params)
+#
+# Paired with: scan_fusion_v9.py (camera wins if closer, 3.0m side cameras)
+# ============================================================================
+
+slam_toolbox:
+  ros__parameters:
+
+    # ========================================================================
+    # SOLVER CONFIGURATION
+    # ========================================================================
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: HuberLoss
+
+    # ========================================================================
+    # ROS PARAMETERS
+    # ========================================================================
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan_fused
+    use_map_saver: true
+    mode: mapping
+
+    resolution: 0.02
+
+    # ========================================================================
+    # PERFORMANCE PARAMETERS
+    # ========================================================================
+    debug_logging: false
+    throttle_scans: 1
+
+    transform_publish_period: 0.01    # 100Hz TF
+    map_update_interval: 0.25         # Fast map updates
+    minimum_time_interval: 0.03       # 30ms
+
+    max_laser_range: 5.0              # From v17: camera zone, no ray streaks
+    transform_timeout: 0.3
+    tf_buffer_duration: 45.0
+    stack_size_to_use: 40000000
+    enable_interactive_mode: true
+
+    # ========================================================================
+    # OCCUPANCY GRID PARAMETERS
+    # ========================================================================
+    min_pass_through: 4               # From v16: camera obstacle persistence
+    occupancy_threshold: 0.1          # From v16: camera obstacles visible
+
+    # ========================================================================
+    # MOVEMENT THRESHOLDS
+    # ========================================================================
+    use_scan_matching: true
+    use_scan_barycenter: true
+
+    minimum_travel_distance: 0.10     # 10cm
+    minimum_travel_heading: 0.03      # ~1.7 degrees
+
+    scan_buffer_size: 5
+    scan_buffer_maximum_scan_distance: 10.0
+
+    # ========================================================================
+    # SCAN MATCHING QUALITY
+    # ========================================================================
+    link_match_minimum_response_fine: 0.50
+    link_scan_maximum_distance: 0.8
+
+    # ========================================================================
+    # LOOP CLOSURE
+    # ========================================================================
+    do_loop_closing: true
+    loop_search_maximum_distance: 15.0
+    loop_match_minimum_chain_size: 5
+    loop_match_maximum_variance_coarse: 4.0
+    loop_match_minimum_response_coarse: 0.30
+    loop_match_minimum_response_fine: 0.35
+
+    # ========================================================================
+    # CORRELATION SEARCH SPACE
+    # ========================================================================
+    correlation_search_space_dimension: 0.35
+    correlation_search_space_resolution: 0.005
+    correlation_search_space_smear_deviation: 0.05    # v19: distance_variance_penalty 0.50 → 0.90 (scan matching trusted after v9 angular comp fix)
+
+    # ========================================================================
+    # LOOP CLOSURE CORRELATION
+    # ========================================================================
+    loop_search_space_dimension: 10.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # VARIANCE PENALTIES
+    # ========================================================================
+    distance_variance_penalty: 0.90   # v19: trust scan matching (angular comp fixed turns)
+    angle_variance_penalty: 0.90
+
+    # ========================================================================
+    # SCAN MATCHER FINE-TUNING
+    # ========================================================================
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.174
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.85
+    minimum_distance_penalty: 0.85
+    use_response_expansion: true

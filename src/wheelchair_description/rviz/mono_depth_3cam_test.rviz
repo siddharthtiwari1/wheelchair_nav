@@ -1,0 +1,282 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+    Property Tree Widget:
+      Expanded:
+        - /TF1/Frames1
+      Splitter Ratio: 0.5
+    Tree Height: 700
+  - Class: rviz_common/Views
+    Name: Views
+    Splitter Ratio: 0.5
+Visualization Manager:
+  Class: ""
+  Displays:
+    # Grid
+    - Alpha: 0.5
+      Cell Size: 1
+      Class: rviz_default_plugins/Grid
+      Color: 160; 160; 164
+      Enabled: true
+      Name: Grid
+      Plane: XY
+      Plane Cell Count: 20
+      Reference Frame: base_link
+      Value: true
+
+    # Robot Model
+    - Alpha: 0.8
+      Class: rviz_default_plugins/RobotModel
+      Description Source: Topic
+      Description Topic:
+        Value: /robot_description
+      Enabled: true
+      Name: RobotModel
+      Value: true
+      Visual Enabled: true
+
+    # TF Frames
+    - Class: rviz_default_plugins/TF
+      Enabled: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: true
+      Name: TF
+      Show Arrows: false
+      Show Axes: true
+      Show Names: true
+      Update Interval: 0
+      Value: true
+
+    # ============================================================
+    # LIDAR SCAN (RED) — 360 ground truth
+    # ============================================================
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Class: rviz_default_plugins/LaserScan
+      Color: 255; 0; 0
+      Color Transformer: FlatColor
+      Decay Time: 0
+      Enabled: true
+      Name: LiDAR (Red)
+      Position Transformer: XYZ
+      Size (Pixels): 5
+      Size (m): 0.04
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /scan_filtered
+      Use Fixed Frame: true
+      Value: true
+
+    # ============================================================
+    # DA3 FUSED SCAN (BLUE) — LiDAR + 3 DA3 cameras
+    # ============================================================
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Class: rviz_default_plugins/LaserScan
+      Color: 50; 100; 255
+      Color Transformer: FlatColor
+      Decay Time: 0
+      Enabled: true
+      Name: DA3 Fused (Blue)
+      Position Transformer: XYZ
+      Size (Pixels): 5
+      Size (m): 0.04
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /scan_mono_fused
+      Use Fixed Frame: true
+      Value: true
+
+    # ============================================================
+    # DA3 FRONT POINTCLOUD (ORANGE)
+    # ============================================================
+    - Alpha: 0.7
+      Autocompute Intensity Bounds: true
+      Class: rviz_default_plugins/PointCloud2
+      Color: 255; 165; 0
+      Color Transformer: FlatColor
+      Decay Time: 0.2
+      Enabled: true
+      Name: DA3 Front (Orange)
+      Position Transformer: XYZ
+      Size (Pixels): 2
+      Size (m): 0.02
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /camera/mono_da3/points
+      Use Fixed Frame: true
+      Value: true
+
+    # ============================================================
+    # DA3 LEFT POINTCLOUD (GREEN)
+    # ============================================================
+    - Alpha: 0.7
+      Autocompute Intensity Bounds: true
+      Class: rviz_default_plugins/PointCloud2
+      Color: 0; 200; 0
+      Color Transformer: FlatColor
+      Decay Time: 0.2
+      Enabled: true
+      Name: DA3 Left (Green)
+      Position Transformer: XYZ
+      Size (Pixels): 2
+      Size (m): 0.02
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /mapping_camera/mono_da3/points
+      Use Fixed Frame: true
+      Value: true
+
+    # ============================================================
+    # DA3 RIGHT POINTCLOUD (YELLOW)
+    # ============================================================
+    - Alpha: 0.7
+      Autocompute Intensity Bounds: true
+      Class: rviz_default_plugins/PointCloud2
+      Color: 255; 255; 0
+      Color Transformer: FlatColor
+      Decay Time: 0.2
+      Enabled: true
+      Name: DA3 Right (Yellow)
+      Position Transformer: XYZ
+      Size (Pixels): 2
+      Size (m): 0.02
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /right_camera/mono_da3/points
+      Use Fixed Frame: true
+      Value: true
+
+    # ============================================================
+    # STEREO FRONT (DARK GREEN, disabled by default)
+    # ============================================================
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Class: rviz_default_plugins/LaserScan
+      Color: 0; 128; 0
+      Color Transformer: FlatColor
+      Decay Time: 0
+      Enabled: false
+      Name: Stereo Front (DkGreen)
+      Position Transformer: XYZ
+      Size (Pixels): 4
+      Size (m): 0.03
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /scan_stereo_front
+      Use Fixed Frame: true
+      Value: false
+
+    # ============================================================
+    # DA3 FRONT DEPTH IMAGE
+    # ============================================================
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Name: DA3 Depth Front
+      Max Value: 8000
+      Min Value: 0
+      Median window: 5
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /camera/mono_da3/image_raw
+      Value: true
+
+    # ============================================================
+    # RGB CAMERA IMAGE
+    # ============================================================
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Name: RGB Front
+      Max Value: 255
+      Min Value: 0
+      Median window: 5
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /camera/color/image_raw
+      Value: true
+
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: base_link
+    Frame Rate: 30
+  Name: root
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/FocusCamera
+    - Class: rviz_default_plugins/Measure
+      Line color: 128; 128; 0
+  Transformation:
+    Current:
+      Class: rviz_default_plugins/TF
+  Value: true
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 5
+      Enable Stereo Rendering:
+        Stereo Eye Separation: 0.06
+        Stereo Focal Distance: 1
+        Swap Stereo Eyes: false
+        Value: false
+      Focal Point:
+        X: 0
+        Y: 0
+        Z: 0
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05
+      Invert Z Axis: false
+      Name: Current View
+      Near Clip Distance: 0.01
+      Pitch: 0.5
+      Target Frame: base_link
+      Value: Orbit (rviz)
+      Yaw: 3.14
+    Saved: ~
+Window Geometry:
+  Displays:
+    collapsed: false
+  Height: 1016
+  Width: 1920

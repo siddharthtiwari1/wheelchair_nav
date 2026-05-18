@@ -1,0 +1,10 @@
+<library path="wheelchair_firmware">
+    <class name="wheelchair_firmware/WheelchairInterface"
+      type="wheelchair_firmware::WheelchairInterface"
+      base_class_type="hardware_interface::SystemInterface"
+    >
+      <description>
+        Wheelchair Hardware Interface for ROS2 Control - Provides motor control, IMU data, and battery monitoring for differential drive wheelchairs
+      </description>
+    </class>
+  </library>

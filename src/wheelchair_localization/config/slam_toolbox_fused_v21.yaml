@@ -1,0 +1,129 @@
+# ============================================================================
+# SLAM Toolbox - FUSED v21: PROVEN v11 BASE + CAMERA OCCUPANCY PERSISTENCE
+# ============================================================================
+# Created: 2026-02-26
+#
+# DO NOT EDIT — create a new versioned file (e.g., slam_toolbox_fused_v22.yaml)
+#
+# Based on: slam_toolbox_fused_v11.yaml (proven working, Jetson-tested)
+#
+# v17-v20 ALL drifted because they diverged from v11 baseline:
+#   v17: smear=0.07 (> hard max 0.05 → SIGABRT)
+#   v18: smear=0.05, penalty=0.50 (too loose)
+#   v19: smear=0.05, penalty=0.90 (smear still too loose)
+#   v20: smear=0.05, penalty=0.90, range=12.0 (drift — long rays + loose smear)
+#
+# v21 RULE: Start from PROVEN v11 (smear=0.03, penalty=0.90, range=8.0).
+# Only add occupancy grid params for camera obstacle persistence.
+#
+# CHANGES FROM v11 (occupancy only — NO scan matching changes):
+#   1. min_pass_through: (default) → 4 (camera obstacles need multiple hits to clear)
+#   2. occupancy_threshold: (default) → 0.1 (camera obstacles visible at lower confidence)
+#
+# Paired with: scan_fusion_v9.py (camera wins if closer, angular compensation)
+# ============================================================================
+
+slam_toolbox:
+  ros__parameters:
+
+    # ========================================================================
+    # SOLVER CONFIGURATION (identical to v11)
+    # ========================================================================
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: HuberLoss
+
+    # ========================================================================
+    # ROS PARAMETERS
+    # ========================================================================
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan_fused
+    use_map_saver: true
+    mode: mapping
+
+    resolution: 0.02
+
+    # ========================================================================
+    # PERFORMANCE PARAMETERS (identical to v11)
+    # ========================================================================
+    debug_logging: false
+    throttle_scans: 1
+
+    transform_publish_period: 0.01    # 100Hz TF
+    map_update_interval: 0.25         # Fast map updates
+    minimum_time_interval: 0.03       # 30ms
+
+    max_laser_range: 8.0              # Proven in v11 (cameras max ~3-3.5m, lidar fills 3.5-8m)
+    transform_timeout: 0.3
+    tf_buffer_duration: 45.0
+    stack_size_to_use: 40000000
+    enable_interactive_mode: true
+
+    # ========================================================================
+    # OCCUPANCY GRID (v21 addition for camera obstacle persistence)
+    # ========================================================================
+    min_pass_through: 4               # Camera obstacles need 4 rays to clear
+    occupancy_threshold: 0.1          # Show camera obstacles at lower confidence
+
+    # ========================================================================
+    # MOVEMENT THRESHOLDS (identical to v11)
+    # ========================================================================
+    use_scan_matching: true
+    use_scan_barycenter: true
+
+    minimum_travel_distance: 0.10     # 10cm
+    minimum_travel_heading: 0.03      # ~1.7 degrees
+
+    scan_buffer_size: 5
+    scan_buffer_maximum_scan_distance: 10.0
+
+    # ========================================================================
+    # SCAN MATCHING QUALITY (identical to v11)
+    # ========================================================================
+    link_match_minimum_response_fine: 0.50
+    link_scan_maximum_distance: 0.8
+
+    # ========================================================================
+    # LOOP CLOSURE (identical to v11)
+    # ========================================================================
+    do_loop_closing: true
+    loop_search_maximum_distance: 15.0
+    loop_match_minimum_chain_size: 5
+    loop_match_maximum_variance_coarse: 4.0
+    loop_match_minimum_response_coarse: 0.30
+    loop_match_minimum_response_fine: 0.35
+
+    # ========================================================================
+    # CORRELATION SEARCH SPACE — JETSON PROVEN (identical to v11)
+    # ========================================================================
+    correlation_search_space_dimension: 0.35
+    correlation_search_space_resolution: 0.005
+    correlation_search_space_smear_deviation: 0.03    # Tight — proven on Jetson + v11
+
+    # ========================================================================
+    # LOOP CLOSURE CORRELATION (identical to v11)
+    # ========================================================================
+    loop_search_space_dimension: 10.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # VARIANCE PENALTIES (identical to v11)
+    # ========================================================================
+    distance_variance_penalty: 0.90   # Trust scan matching
+    angle_variance_penalty: 0.90
+
+    # ========================================================================
+    # SCAN MATCHER FINE-TUNING (identical to v11)
+    # ========================================================================
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.174
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.85
+    minimum_distance_penalty: 0.85
+    use_response_expansion: true

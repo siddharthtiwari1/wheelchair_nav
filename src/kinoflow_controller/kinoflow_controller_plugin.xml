@@ -1,0 +1,10 @@
+<library path="kinoflow_controller">
+  <class name="kinoflow_controller/KinoFlowController"
+         type="kinoflow_controller::KinoFlowController"
+         base_class_type="nav2_core::Controller">
+    <description>
+      KinoFlow v2: Flow-matching E2E controller for wheelchair navigation.
+      Uses dual ONNX models (encoder + vector field) for real-time inference.
+    </description>
+  </class>
+</library>

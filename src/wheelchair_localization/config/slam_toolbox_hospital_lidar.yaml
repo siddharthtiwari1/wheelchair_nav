@@ -1,0 +1,122 @@
+# ============================================================================
+# SLAM Toolbox - HOSPITAL LIDAR-ONLY: 25m RANGE FOR SPACIOUS CORRIDORS
+# ============================================================================
+# Created: 2026-03-08
+#
+# DO NOT EDIT — create a new versioned file (e.g., slam_toolbox_hospital_lidar_v2.yaml)
+#
+# Based on: slam_toolbox_motion_compensated_v2.yaml (Jetson-proven, lidar-only)
+#
+# V7 RULE: Only 2 parameters changed from proven lidar-only baseline:
+#   1. max_laser_range: 12.0 → 25.0 (full RPLidar S3 range for hospital corridors)
+#   2. loop_search_maximum_distance: 15.0 → 30.0 (long hospital corridors need wider loop search)
+#
+# ALL other parameters are IDENTICAL to slam_toolbox_motion_compensated_v2.yaml.
+#
+# Hospital notes:
+#   - 25m captures full corridor geometry (was losing 50%+ data at 12m)
+#   - 30m loop search finds loop closures in long L-shaped / U-shaped corridors
+#   - Chairs/tables detected by lidar at scan height (good landmarks)
+#   - Use with laser_filter_hospital.yaml (25m range filter)
+#
+# Paired with: wheelchair_slam_mapping.launch.py hospital_mode:=true
+# ============================================================================
+
+slam_toolbox:
+  ros__parameters:
+
+    # ========================================================================
+    # SOLVER CONFIGURATION (identical to v2)
+    # ========================================================================
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: HuberLoss
+
+    # ========================================================================
+    # ROS PARAMETERS
+    # ========================================================================
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan_filtered          # Lidar-only (default)
+    use_map_saver: true
+    mode: mapping
+
+    resolution: 0.02
+
+    # ========================================================================
+    # PERFORMANCE PARAMETERS
+    # ========================================================================
+    debug_logging: false
+    throttle_scans: 1
+
+    transform_publish_period: 0.01    # 100Hz TF
+    map_update_interval: 0.25         # Fast map updates
+    minimum_time_interval: 0.03       # 30ms
+
+    max_laser_range: 25.0             # *** HOSPITAL: full RPLidar S3 range (was 12.0) ***
+    transform_timeout: 0.3
+    tf_buffer_duration: 45.0
+    stack_size_to_use: 40000000
+    enable_interactive_mode: true
+
+    # ========================================================================
+    # MOVEMENT THRESHOLDS (identical to v2)
+    # ========================================================================
+    use_scan_matching: true
+    use_scan_barycenter: true
+
+    minimum_travel_distance: 0.10     # 10cm
+    minimum_travel_heading: 0.03      # ~1.7 degrees
+
+    scan_buffer_size: 5
+    scan_buffer_maximum_scan_distance: 10.0
+
+    # ========================================================================
+    # SCAN MATCHING QUALITY (identical to v2)
+    # ========================================================================
+    link_match_minimum_response_fine: 0.50
+    link_scan_maximum_distance: 0.8
+
+    # ========================================================================
+    # LOOP CLOSURE — WIDENED FOR HOSPITAL
+    # ========================================================================
+    do_loop_closing: true
+    loop_search_maximum_distance: 30.0   # *** HOSPITAL: was 15.0 — long corridors ***
+    loop_match_minimum_chain_size: 5
+    loop_match_maximum_variance_coarse: 4.0
+    loop_match_minimum_response_coarse: 0.30
+    loop_match_minimum_response_fine: 0.35
+
+    # ========================================================================
+    # CORRELATION SEARCH SPACE — JETSON PROVEN (identical to v2)
+    # ========================================================================
+    correlation_search_space_dimension: 0.35
+    correlation_search_space_resolution: 0.005
+    correlation_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # LOOP CLOSURE CORRELATION (identical to v2)
+    # ========================================================================
+    loop_search_space_dimension: 10.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # VARIANCE PENALTIES (identical to v2)
+    # ========================================================================
+    distance_variance_penalty: 0.90
+    angle_variance_penalty: 0.90
+
+    # ========================================================================
+    # SCAN MATCHER FINE-TUNING (identical to v2)
+    # ========================================================================
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.174
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.85
+    minimum_distance_penalty: 0.85
+    use_response_expansion: true

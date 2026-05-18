@@ -1,0 +1,135 @@
+# ============================================================================
+# SLAM Toolbox - FUSED SCAN V4 (scan_fusion_v2 + anti-artifact fixes)
+# ============================================================================
+# Created: 2026-02-23
+#
+# Fixes 4 observed issues from v3 testing:
+#   1. Phantom ray spikes through walls (flying pixel artifacts)
+#   2. Map rotation ~20-30° (first-scan angular lock)
+#   3. Wall smearing (resolution too coarse + smear too wide)
+#   4. Scattered noise in open space (camera gap-fill)
+#
+# Changes from v3:
+#   - resolution: 0.05 → 0.03 (sharper walls, still absorbs ±1.5cm noise)
+#   - smear_deviation: 0.10 → 0.045 (sigma=1.5 cells, not 3.3)
+#   - angle_variance_penalty: 0.50 → 0.30 (stronger angular anchor to IMU)
+#   - coarse_search_angle_offset: 0.20 → 0.10 (5.7°, prevents rotation lock)
+#   - scan_buffer_size: 10 → 7 (less noise accumulation per match)
+#
+# Paired with: scan_fusion_v2 (margin=0.25, pts=4, range=2.0, no gap-fill)
+# SLAM mode:   async (drops stale scans naturally)
+# Previous:    slam_toolbox_fused_v3.yaml (map rotation + wall smearing)
+#
+# DO NOT EDIT — create a new versioned file instead
+# ============================================================================
+
+slam_toolbox:
+  ros__parameters:
+
+    # ========================================================================
+    # SOLVER
+    # ========================================================================
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: HuberLoss
+
+    # ========================================================================
+    # ROS PARAMETERS
+    # ========================================================================
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan_fused
+    use_map_saver: true
+    mode: mapping
+
+    # 0.03m — compromise between 0.02m (lidar crisp but captures noise) and
+    # 0.05m (absorbs noise but smears walls to 10-15cm thick).
+    # At 0.03m, ±1.5cm depth noise stays within one cell.
+    resolution: 0.03
+
+    # ========================================================================
+    # PERFORMANCE
+    # ========================================================================
+    debug_logging: false
+    throttle_scans: 1
+
+    transform_publish_period: 0.02
+    map_update_interval: 2.0
+    minimum_time_interval: 0.50       # ~2 scans/sec (default 0.5s)
+
+    max_laser_range: 8.0
+    transform_timeout: 0.2
+    tf_buffer_duration: 45.0
+    stack_size_to_use: 40000000
+    enable_interactive_mode: true
+
+    # ========================================================================
+    # MOVEMENT THRESHOLDS
+    # ========================================================================
+    use_scan_matching: true
+    use_scan_barycenter: true
+
+    minimum_travel_distance: 0.15
+    minimum_travel_heading: 0.10
+
+    # Buffer of 7 scans × 0.15m = ~1m geometric context
+    # Smaller than v3 (10) to reduce camera noise accumulation
+    scan_buffer_size: 7
+    scan_buffer_maximum_scan_distance: 8.0
+
+    # ========================================================================
+    # SCAN MATCHING
+    # ========================================================================
+    link_match_minimum_response_fine: 0.30
+    link_scan_maximum_distance: 1.0
+
+    # ========================================================================
+    # LOOP CLOSURE
+    # ========================================================================
+    do_loop_closing: true
+    loop_search_maximum_distance: 15.0
+    loop_match_minimum_chain_size: 5
+    loop_match_maximum_variance_coarse: 4.0
+    loop_match_minimum_response_coarse: 0.40
+    loop_match_minimum_response_fine: 0.45
+
+    # ========================================================================
+    # CORRELATION SEARCH SPACE
+    # ========================================================================
+    correlation_search_space_dimension: 0.50
+    correlation_search_space_resolution: 0.01
+    # Smear sigma = 0.045 / 0.03 = 1.5 cells → kernel ~4.5 cells = 13.5cm
+    # v3 had 0.10/0.05 = 2.0 cells → kernel ~6 cells = 30cm (caused smearing)
+    correlation_search_space_smear_deviation: 0.045
+
+    # ========================================================================
+    # LOOP CLOSURE CORRELATION
+    # ========================================================================
+    loop_search_space_dimension: 10.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # ========================================================================
+    # VARIANCE PENALTIES — STRONG ODOM TRUST (source-code verified)
+    # ========================================================================
+    # penalty = 1.0 - (0.2 * dist² / variance_penalty)
+    # Lower = stronger penalty = more odom trust
+    distance_variance_penalty: 0.30
+    angle_variance_penalty: 0.30      # Was 0.50 in v3. IMU gives good heading;
+                                      # 0.30 prevents angular drift from noisy scans
+    minimum_distance_penalty: 0.50
+    minimum_angle_penalty: 0.90
+
+    # ========================================================================
+    # SCAN MATCHER FINE-TUNING
+    # ========================================================================
+    fine_search_angle_offset: 0.00349
+    # 0.10 rad = 5.7° — with good IMU, this is plenty.
+    # v3 used 0.20 (11.5°) which allowed first-scan rotation lock.
+    coarse_search_angle_offset: 0.10
+    coarse_angle_resolution: 0.0349
+    use_response_expansion: true

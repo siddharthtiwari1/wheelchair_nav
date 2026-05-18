@@ -1,0 +1,7 @@
+image: 2026-03-06_lidar_only.pgm
+mode: trinary
+resolution: 0.020
+origin: [-11.211, -4.589, 0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196

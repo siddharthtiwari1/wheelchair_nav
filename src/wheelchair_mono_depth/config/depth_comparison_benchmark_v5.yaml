@@ -1,0 +1,13 @@
+# Depth comparison benchmark parameters — Stereo vs DA3 raw vs DA3 lidar-corrected
+# Changed from v4: added corrected_scan_topic for 3-way comparison
+# Used by: depth_comparison_test.launch.py → depth_scan_benchmark_node
+# DO NOT EDIT — create a new versioned file (e.g., depth_comparison_benchmark_v6.yaml)
+depth_scan_benchmark:
+  ros__parameters:
+    stereo_scan_topic: "/scan_stereo"
+    mono_scan_topic: "/scan_da3"
+    mono_d2l_scan_topic: "/scan_da3_corrected"
+    output_dir: "/home/sidd/wheelchair_nav/eval_output/depth_comparison"
+    sync_slop: 0.5
+    fp_threshold_m: 0.5
+    summary_interval: 25

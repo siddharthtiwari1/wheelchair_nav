@@ -1,0 +1,35 @@
+# ============================================================================
+# LASER FILTER CHAIN - BALANCED FOR LAB ENVIRONMENT
+# ============================================================================
+# Goal: Remove isolated clutter while keeping walls
+# ============================================================================
+
+laser_filter:
+  ros__parameters:
+
+    # ========================================================================
+    # FILTER 1: Range Filter - Remove invalid readings
+    # ========================================================================
+    filter1:
+      name: range_filter
+      type: laser_filters/LaserScanRangeFilter
+      params:
+        lower_threshold: 0.15      # 15cm min
+        upper_threshold: 15.0      # 15m max
+        use_message_range_limits: false
+
+    # ========================================================================
+    # FILTER 2: Speckle Filter - Remove isolated points ONLY
+    # ========================================================================
+    filter2:
+      name: speckle_filter
+      type: laser_filters/LaserScanSpeckleFilter
+      params:
+        filter_type: 0             # Distance-based
+        max_range: 15.0
+        max_range_difference: 0.15 # 15cm - RELAXED (was 5cm)
+        filter_window: 3           # Check 3 neighbors (was 7)
+
+# ============================================================================
+# SIMPLIFIED FILTER - Only removes truly isolated points
+# ============================================================================

@@ -1,0 +1,235 @@
+<?xml version="1.0"?>
+<robot name="wheelchair_description" xmlns:xacro="http://ros.org/wiki/xacro">
+  
+  <!-- Main Wheels - High friction for traction -->
+  <gazebo reference="left_wheel">
+    <mu1>10.0</mu1>
+    <mu2>10.0</mu2>
+    <kp>1000000.0</kp>
+    <kd>1.0</kd>
+    <minDepth>0.01</minDepth>
+    <maxVel>10.0</maxVel>
+    <fdir1>1 0 0</fdir1>
+    <material>Gazebo/Grey</material>
+  </gazebo>
+  
+  <gazebo reference="right_wheel">
+    <mu1>10.0</mu1>
+    <mu2>10.0</mu2>
+    <kp>1000000.0</kp>
+    <kd>1.0</kd>
+    <minDepth>0.01</minDepth>
+    <maxVel>10.0</maxVel>
+    <fdir1>1 0 0</fdir1>
+    <material>Gazebo/Grey</material>
+  </gazebo>
+  
+  <!-- Caster Wheels - Lower friction for free movement -->
+  <gazebo reference="l_castor_wheel">
+    <mu1>0.1</mu1>
+    <mu2>0.1</mu2>
+    <kp>1000000.0</kp>
+    <kd>100.0</kd>
+    <minDepth>0.001</minDepth>
+    <maxVel>1.0</maxVel>
+    <material>Gazebo/Black</material>
+  </gazebo>
+  
+  <gazebo reference="r_castor_wheel">
+    <mu1>0.1</mu1>
+    <mu2>0.1</mu2>
+    <kp>1000000.0</kp>
+    <kd>100.0</kd>
+    <minDepth>0.001</minDepth>
+    <maxVel>1.0</maxVel>
+    <material>Gazebo/Black</material>
+  </gazebo>
+  
+  <!-- Main wheelchair body -->
+  <gazebo reference="wheelchair_main">
+    <material>Gazebo/Blue</material>
+  </gazebo>
+  
+  <!-- Caster assemblies -->
+  <gazebo reference="left_castor">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+  
+  <gazebo reference="right_castor">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+  
+  <!-- Encoders -->
+  <gazebo reference="left_encoder">
+    <material>Gazebo/Black</material>
+  </gazebo>
+  
+  <gazebo reference="right_encoder">
+    <material>Gazebo/Black</material>
+  </gazebo>
+  
+  <!-- Sensors -->
+  <gazebo reference="lidar">
+    <material>Gazebo/Red</material>
+  </gazebo>
+  
+  
+  <gazebo reference="camera">
+    <material>Gazebo/Black</material>
+  </gazebo>
+  
+  <gazebo reference="IMU">
+    <material>Gazebo/Green</material>
+  </gazebo>
+
+  
+  <!-- Caster axles -->
+  <gazebo reference="left_caster_axle">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+  
+  <gazebo reference="right_caster_axle">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+  <!-- Differential Drive Plugin - REMOVED to avoid conflict with ros2_control -->
+  <!-- Now using unified ros2_control system for both simulation and real hardware -->
+  <gazebo>
+    <!-- ros2_control will handle differential drive in simulation mode -->
+  </gazebo>
+
+  <!-- Camera IMU Plugin - D455 IMU for ros2_control integration -->
+  <gazebo reference="IMU">
+    <sensor name="camera_imu" type="imu">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <visualize>true</visualize>
+      <topic>/imu/out</topic>
+      <imu>
+        <angular_velocity>
+          <x>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev>
+            </noise>
+          </x>
+          <y>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev>
+            </noise>
+          </y>
+          <z>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev>
+            </noise>
+          </z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>1.7e-2</stddev>
+            </noise>
+          </x>
+          <y>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>1.7e-2</stddev>
+            </noise>
+          </y>
+          <z>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>1.7e-2</stddev>
+            </noise>
+          </z>
+        </linear_acceleration>
+      </imu>
+    </sensor>
+  </gazebo>
+
+
+  <!-- LiDAR Plugin (GPU LIDAR) -->
+  <gazebo reference="lidar">
+    <sensor name="gpu_lidar" type="gpu_lidar">
+      <pose>0 0 0 0 0 0</pose>
+      <visualize>true</visualize>
+      <update_rate>10</update_rate>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.141592</min_angle>
+            <max_angle>3.141592</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.3</min>
+          <max>12.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </lidar>
+    </sensor>
+  </gazebo> 
+  
+  <!-- ROS 2 Control and Sensor Plugins -->
+  <gazebo>
+    <!-- ROS 2 Humble - Uses Ignition Gazebo -->
+    <xacro:if value="$(arg is_ignition)">
+      <plugin filename="ign_ros2_control-system" name="ign_ros2_control::IgnitionROS2ControlPlugin">
+        <parameters>$(find wc_control)/config/wc_control.yaml</parameters>
+      </plugin>
+      <plugin filename="ignition-gazebo-imu-system" name="ignition::gazebo::systems::Imu">
+      </plugin>
+      <plugin filename="ignition-gazebo-sensors-system" name="ignition::gazebo::systems::Sensors">
+        <render_engine>ogre2</render_engine>
+      </plugin>
+    </xacro:if>
+
+    <!-- ROS 2 Jazzy and later - Uses Gazebo Sim (gz-sim) -->
+    <xacro:unless value="$(arg is_ignition)">
+      <plugin filename="gz_ros2_control-system" name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+        <parameters>$(find wc_control)/config/wc_control.yaml</parameters>
+      </plugin>
+      <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu">
+      </plugin>
+      <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+        <render_engine>ogre2</render_engine>
+      </plugin>
+    </xacro:unless>
+  </gazebo>
+
+  <!-- Camera Plugin -->
+  <gazebo reference="camera">
+    <sensor type="camera" name="camera1">
+      <update_rate>30.0</update_rate>
+      <visualize>true</visualize>
+      <camera>
+        <horizontal_fov>1.3962634</horizontal_fov>
+        <image>
+          <width>800</width>
+          <height>600</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.02</near>
+          <far>300</far>
+        </clip>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.007</stddev>
+        </noise>
+      </camera>
+    </sensor>
+  </gazebo>
+
+</robot>

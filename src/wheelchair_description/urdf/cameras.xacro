@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  3-Camera Configuration for Wheelchair Navigation
+  Height-Aware Sensor Fusion System
+
+  Hardware Configuration:
+  - Front D455:  Serial 337122300107, Position (-0.41, 0, 1.54m), facing backward
+  - Left D455:   Serial 146222253403, Position (0, 0.22, 0.44m), facing left (+90°)
+  - Right D435i: Serial 207522077542, Position (0, -0.22, 0.44m), facing right (-90°)
+
+  Note: wheelchair_main is 0.2m above base_link, so positions relative to wheelchair_main are:
+  - Front: (-0.41, 0, 1.34m) - already defined in main URDF
+  - Left:  (0, 0.22, 0.24m)
+  - Right: (0, -0.22, 0.24m)
+-->
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- Camera macro for RealSense D455/D435i -->
+  <xacro:macro name="realsense_camera" params="name parent xyz rpy">
+
+    <!-- Camera Physical Link -->
+    <link name="${name}_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.025 0.090 0.025"/>
+        </geometry>
+        <material name="${name}_material">
+          <color rgba="0.2 0.2 0.2 1.0"/>
+        </material>
+      </visual>
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.083"/>
+        <inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.0001"/>
+      </inertial>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.025 0.090 0.025"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${name}_link_joint" type="fixed">
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+      <parent link="${parent}"/>
+      <child link="${name}_link"/>
+    </joint>
+
+    <!-- Depth Optical Frame (ROS standard: X-right, Y-down, Z-forward) -->
+    <link name="${name}_depth_optical_frame"/>
+
+    <joint name="${name}_depth_optical_joint" type="fixed">
+      <!-- Transform from camera body frame to optical frame -->
+      <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+      <parent link="${name}_link"/>
+      <child link="${name}_depth_optical_frame"/>
+    </joint>
+
+    <!-- Color Optical Frame -->
+    <link name="${name}_color_optical_frame"/>
+
+    <joint name="${name}_color_optical_joint" type="fixed">
+      <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+      <parent link="${name}_link"/>
+      <child link="${name}_color_optical_frame"/>
+    </joint>
+
+    <!-- Depth Frame (intermediate frame used by RealSense driver) -->
+    <link name="${name}_depth_frame"/>
+
+    <joint name="${name}_depth_frame_joint" type="fixed">
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <parent link="${name}_link"/>
+      <child link="${name}_depth_frame"/>
+    </joint>
+
+  </xacro:macro>
+
+  <!-- ============================================== -->
+  <!-- LEFT CAMERA (mapping_camera) - D455           -->
+  <!-- Serial: 146222253403                          -->
+  <!-- Position: (0, 0.22, 0.44m) from base_link     -->
+  <!-- Facing left (+90 degrees yaw)                 -->
+  <!-- ============================================== -->
+  <xacro:realsense_camera
+    name="mapping_camera"
+    parent="wheelchair_main"
+    xyz="0 0.22 0.24"
+    rpy="0 0 1.5708"/>
+
+  <!-- ============================================== -->
+  <!-- RIGHT CAMERA (right_camera) - D435i           -->
+  <!-- Serial: 207522077542                          -->
+  <!-- Position: (0, -0.22, 0.44m) from base_link    -->
+  <!-- Facing right (-90 degrees yaw)                -->
+  <!-- ============================================== -->
+  <xacro:realsense_camera
+    name="right_camera"
+    parent="wheelchair_main"
+    xyz="0 -0.22 0.24"
+    rpy="0 0 -1.5708"/>
+
+</robot>

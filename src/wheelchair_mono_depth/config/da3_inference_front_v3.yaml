@@ -1,0 +1,16 @@
+# Depth Anything V3 inference parameters — front D455 camera
+# Changed from v2: use RGB camera_info (/camera/color/camera_info) instead of depth
+#   - DA3 processes RGB images, so back-projection needs RGB intrinsics
+#   - Depth camera has different resolution/focal length, causing distorted pointcloud
+# Used by: depth_comparison_test.launch.py → da3_depth_node
+# DO NOT EDIT — create a new versioned file (e.g., da3_inference_front_v4.yaml)
+da3_depth_node:
+  ros__parameters:
+    model_name: "da3metric-large"
+    max_depth: 6.0
+    inference_hz: 6.0
+    rgb_topic: "/camera/color/image_raw"
+    camera_info_topic: "/camera/color/camera_info"
+    output_depth_topic: "/camera/mono_depth/image_raw"
+    output_info_topic: "/camera/mono_depth/camera_info"
+    pointcloud_topic: "/camera/mono_depth/points"

@@ -1,0 +1,121 @@
+<!--
+WHEELCHAIR KINOFLOW NAVIGATION BEHAVIOR TREE
+=============================================
+Simplified BT for KinoFlow controller integration.
+
+KinoFlow replaces the controller_server (RPP) with a standalone Python node
+that subscribes to /plan and publishes /cmd_vel_nav directly. Therefore:
+- NO FollowPath action (kinoflow_node does its own path following)
+- ComputePathToPose publishes /plan which kinoflow_node subscribes to
+- Recovery actions are the same backup-first strategy (handled by behavior_server)
+
+FLOW:
+  1. BT computes global path via planner_server → publishes /plan
+  2. kinoflow_node (external) reads /plan + /scan_fused + /odom → publishes /cmd_vel_nav
+  3. velocity_smoother smooths /cmd_vel_nav → /cmd_vel
+  4. On failure/timeout: backup-first recovery sequence
+
+GOAL COMPLETION:
+  Since kinoflow_node handles path following externally, the BT does NOT have
+  a FollowPath action. Instead:
+  - The BT continuously replans at 1.5Hz (keeping /plan fresh)
+  - A GoalReached condition monitors distance to the goal
+  - When GoalReached returns SUCCESS, the Sequence exits → navigation done
+  - GoalReached uses the global costmap's TF (map→base_link) to check distance
+  - xy_goal_tolerance is read from the bt_navigator's goal_checker config
+
+  If the robot fails to reach the goal (planning fails, no progress), the
+  RecoveryNode triggers the backup-first recovery sequence.
+
+Pairs with: nav2_params_kinoflow.yaml, wheelchair_kinoflow_nav.launch.py
+Created: 2026-02-28
+-->
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+
+    <!-- Main navigation with 7 recovery attempts -->
+    <RecoveryNode number_of_retries="7" name="NavigateRecovery">
+
+      <!-- Primary: replan + wait for goal arrival -->
+      <PipelineSequence name="NavigateWithReplanning">
+
+        <!-- =================================================================
+             PATH PLANNING - 1.5Hz replanning for dynamic environments
+             kinoflow_node subscribes to /plan published by ComputePathToPose
+             ================================================================= -->
+        <RateController hz="1.5">
+          <RecoveryNode number_of_retries="1" name="ComputePathRecoveryNode">
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"
+                               error_code_id="{compute_path_error_code}"/>
+            <!-- If planning fails, clear global costmap once -->
+            <ClearEntireCostmap name="ClearGlobalOnPlanFail"
+              service_name="global_costmap/clear_entirely_global_costmap"/>
+          </RecoveryNode>
+        </RateController>
+
+        <!-- =================================================================
+             GOAL MONITORING - Block until robot reaches the goal.
+             kinoflow_node handles the actual driving; this node just monitors
+             distance to goal. Without this, the PipelineSequence would
+             succeed immediately after path computation (BT CRITICAL BUG).
+
+             GoalReached checks if robot is within xy_goal_tolerance (0.15m)
+             of the goal pose. Returns SUCCESS when close enough.
+
+             RateController limits goal checking to 2Hz to avoid wasting CPU.
+             ================================================================= -->
+        <RateController hz="2.0">
+          <GoalReached goal="{goal}" xy_goal_tolerance="0.15" global_frame="map"
+                       robot_base_frame="base_link"/>
+        </RateController>
+
+      </PipelineSequence>
+
+      <!-- =================================================================
+           RECOVERY ACTIONS - RoundRobin with BACKUP-FIRST Strategy
+           Same as wheelchair_robust_nav.xml (wheelchair-optimized order)
+           ================================================================= -->
+      <ReactiveFallback name="RecoveryFallback">
+        <!-- Check if goal was updated - skip recovery if so -->
+        <GoalUpdated/>
+
+        <!-- Recovery sequence - CYCLES through each on failure (RoundRobin!) -->
+        <RoundRobin name="RecoveryActions">
+
+          <!-- Recovery 1: BACKUP FIRST - Most common stuck scenario (slow + short) -->
+          <BackUp backup_dist="0.15" backup_speed="0.05" time_allowance="3.0"/>
+
+          <!-- Recovery 2: Clear costmaps (fast - removes stale obstacles) -->
+          <Sequence name="CostmapClearRecovery">
+            <ClearEntireCostmap name="ClearGlobalCostmap"
+              service_name="global_costmap/clear_entirely_global_costmap"/>
+            <ClearEntireCostmap name="ClearLocalCostmap"
+              service_name="local_costmap/clear_entirely_local_costmap"/>
+          </Sequence>
+
+          <!-- Recovery 3: Wait for dynamic obstacles to move -->
+          <Wait wait_duration="2.0"/>
+
+          <!-- Recovery 4: TINY spin CW (30 deg - just enough to change approach) -->
+          <Spin spin_dist="0.52" time_allowance="3.0"/>
+
+          <!-- Recovery 5: Longer backup if spin didn't help (still slow) -->
+          <BackUp backup_dist="0.20" backup_speed="0.05" time_allowance="4.0"/>
+
+          <!-- Recovery 6: TINY spin CCW (30 deg) -->
+          <Spin spin_dist="-0.52" time_allowance="3.0"/>
+
+          <!-- Recovery 7: Last resort - clear and aggressive backup -->
+          <Sequence name="AggressiveRecovery">
+            <ClearEntireCostmap name="ClearBeforeAggressiveBackup"
+              service_name="local_costmap/clear_entirely_local_costmap"/>
+            <BackUp backup_dist="0.25" backup_speed="0.05" time_allowance="5.0"/>
+          </Sequence>
+
+        </RoundRobin>
+      </ReactiveFallback>
+
+    </RecoveryNode>
+
+  </BehaviorTree>
+</root>

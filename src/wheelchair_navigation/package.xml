@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>wheelchair_navigation</name>
+  <version>1.0.0</version>
+  <description>Nav2 navigation stack for autonomous wheelchair navigation</description>
+  <maintainer email="your_email@example.com">sidd</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- Nav2 Dependencies -->
+  <exec_depend>nav2_bt_navigator</exec_depend>
+  <exec_depend>nav2_controller</exec_depend>
+  <exec_depend>nav2_planner</exec_depend>
+  <exec_depend>nav2_behaviors</exec_depend>
+  <exec_depend>nav2_smoother</exec_depend>
+  <exec_depend>nav2_velocity_smoother</exec_depend>
+  <exec_depend>nav2_collision_monitor</exec_depend>
+  <exec_depend>nav2_waypoint_follower</exec_depend>
+  <exec_depend>nav2_lifecycle_manager</exec_depend>
+  <exec_depend>nav2_costmap_2d</exec_depend>
+  <exec_depend>nav2_navfn_planner</exec_depend>
+  <exec_depend>dwb_core</exec_depend>
+  <exec_depend>nav2_common</exec_depend>
+
+  <!-- Wheelchair Custom Planners and Controllers -->
+  <exec_depend>wheelchair_planning</exec_depend>
+  <exec_depend>wheelchair_motion</exec_depend>
+
+  <!-- Other Dependencies -->
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>wheelchair_description</exec_depend>
+  <exec_depend>wheelchair_localization</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

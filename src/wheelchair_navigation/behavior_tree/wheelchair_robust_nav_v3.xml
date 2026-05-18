@@ -1,0 +1,106 @@
+<!--
+WHEELCHAIR ROBUST NAVIGATION BEHAVIOR TREE V3
+===============================================
+CHANGES from v2 (wheelchair_robust_nav_v2.xml):
+- number_of_retries: 3 -> 7 (match 7 recovery actions — each gets tried once)
+- RateController: 1.5Hz -> 0.5Hz (replan every 2s = every ~50cm, reduces path oscillation)
+- Backup distances: 15/20/25cm -> 30/40/50cm (tiny backups couldn't clear obstacles)
+- Backup speed: 0.05 -> 0.10 m/s (halves backup time, still safe within smoother limits)
+- Spin angles: 30deg -> 60deg (0.52 -> 1.05 rad — wider scan for alternatives)
+- time_allowance increased for larger motions
+
+Root cause: rosbag analysis of nav_20260307_152150 showed:
+- Goals 5-8 FAILED (0.42m total in 272s) after AMCL jumped 5.3m
+- v2 had only 3 retries covering 3 of 7 recovery strategies
+- 15cm backups at 0.05 m/s were too small/slow to clear real obstacles
+- 30 deg spins too narrow to find alternative paths
+
+Worst-case recovery time: 7 actions x ~4s avg = ~28s before giving up.
+Much better than v2's 3 retries that never tried backup>20cm.
+
+DO NOT EDIT - create a new versioned file (wheelchair_robust_nav_v4.xml)
+
+RECOVERY SEQUENCE (wheelchair-optimized, backup-first):
+1. Backup 30cm @ 0.10 m/s (3s) — most common stuck scenario
+2. Clear costmaps (~0.3s) — remove stale obstacle data
+3. Wait 2.0s — let dynamic obstacles move
+4. Spin 60 deg CW (5s) — look for alternatives
+5. Backup 40cm @ 0.10 m/s (4s) — longer backup if spin didn't help
+6. Spin 60 deg CCW (5s) — try opposite direction
+7. Clear + Backup 50cm @ 0.10 m/s (5s) — last resort aggressive clear
+
+Created: 2026-03-07
+-->
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+
+    <!-- Main navigation with 7 recovery cycles (each of 7 actions tried once) -->
+    <RecoveryNode number_of_retries="7" name="NavigateRecovery">
+
+      <!-- Primary navigation pipeline -->
+      <PipelineSequence name="NavigateWithReplanning">
+
+        <!-- PATH PLANNING - 0.5Hz replanning (every 2s = ~50cm at 0.25 m/s) -->
+        <RateController hz="0.5">
+          <RecoveryNode number_of_retries="1" name="ComputePathRecoveryNode">
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"
+                               error_code_id="{compute_path_error_code}"/>
+            <ClearEntireCostmap name="ClearGlobalOnPlanFail"
+              service_name="global_costmap/clear_entirely_global_costmap"/>
+          </RecoveryNode>
+        </RateController>
+
+        <!-- PATH FOLLOWING - With single recovery attempt -->
+        <RecoveryNode number_of_retries="1" name="FollowPathRecoveryNode">
+          <FollowPath path="{path}" controller_id="FollowPath"
+                      goal_checker_id="general_goal_checker"
+                      error_code_id="{follow_path_error_code}"/>
+          <ClearEntireCostmap name="ClearLocalOnFollowFail"
+            service_name="local_costmap/clear_entirely_local_costmap"/>
+        </RecoveryNode>
+
+      </PipelineSequence>
+
+      <!-- RECOVERY ACTIONS - RoundRobin with BACKUP-FIRST Strategy -->
+      <ReactiveFallback name="RecoveryFallback">
+        <GoalUpdated/>
+
+        <RoundRobin name="RecoveryActions">
+
+          <!-- Recovery 1: BACKUP FIRST — clear immediate obstacle behind -->
+          <BackUp backup_dist="0.30" backup_speed="0.10" time_allowance="4.0"/>
+
+          <!-- Recovery 2: Clear costmaps (removes stale obstacles so re-plan can work) -->
+          <Sequence name="CostmapClearRecovery">
+            <ClearEntireCostmap name="ClearGlobalCostmap"
+              service_name="global_costmap/clear_entirely_global_costmap"/>
+            <ClearEntireCostmap name="ClearLocalCostmap"
+              service_name="local_costmap/clear_entirely_local_costmap"/>
+          </Sequence>
+
+          <!-- Recovery 3: Wait for dynamic obstacles to move -->
+          <Wait wait_duration="2.0"/>
+
+          <!-- Recovery 4: Spin CW 60 deg — wider look for alternatives -->
+          <Spin spin_dist="1.05" time_allowance="5.0"/>
+
+          <!-- Recovery 5: Longer backup -->
+          <BackUp backup_dist="0.40" backup_speed="0.10" time_allowance="5.0"/>
+
+          <!-- Recovery 6: Spin CCW 60 deg — try opposite direction -->
+          <Spin spin_dist="-1.05" time_allowance="5.0"/>
+
+          <!-- Recovery 7: Last resort — clear then aggressive backup -->
+          <Sequence name="AggressiveRecovery">
+            <ClearEntireCostmap name="ClearBeforeAggressiveBackup"
+              service_name="local_costmap/clear_entirely_local_costmap"/>
+            <BackUp backup_dist="0.50" backup_speed="0.10" time_allowance="6.0"/>
+          </Sequence>
+
+        </RoundRobin>
+      </ReactiveFallback>
+
+    </RecoveryNode>
+
+  </BehaviorTree>
+</root>
