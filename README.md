@@ -92,7 +92,6 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 |---|---|---|
 | `run_nav` | `wheelchair_fusion_nav.launch.py` | Autonomous navigation on a saved map |
 | `run_slam` | `wheelchair_slam_mapping.launch.py` | Build a map by driving manually |
-| `run_localization` | `wheelchair_fusion_localization.launch.py` | Sensors + odometry + AMCL, no Nav2 |
 
 **Navigation.** Defaults: `map_name:=maps/h2.yaml`,
 `nav2_params:=nav2_params_3cam_v29.yaml`, `bt_xml:=wheelchair_robust_nav_v3.xml`.
