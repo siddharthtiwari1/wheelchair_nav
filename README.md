@@ -2,8 +2,8 @@
 
 # 🦽 Autonomous Wheelchair Navigation
 
-**A production ROS 2 navigation stack for a differential-drive powered wheelchair —
-LiDAR + multi-camera fusion, robust EKF/ZUPT odometry, SLAM mapping, and Nav2 autonomy.**
+**ROS 2 navigation stack for a self-driving powered wheelchair.
+LiDAR and depth-camera fusion, EKF odometry, SLAM mapping, and Nav2.**
 
 [![ROS 2 Jazzy](https://img.shields.io/badge/ROS%202-Jazzy-22314E?logo=ros&logoColor=white)](https://docs.ros.org/en/jazzy/)
 [![Ubuntu 24.04](https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white)](https://releases.ubuntu.com/24.04/)
@@ -17,48 +17,46 @@ LiDAR + multi-camera fusion, robust EKF/ZUPT odometry, SLAM mapping, and Nav2 au
 
 ## Overview
 
-This repository contains the complete onboard navigation software for an autonomous
-powered wheelchair. The platform carries a human passenger, so the stack is engineered
-around **safety, smooth motion, and reliable localization in cluttered indoor
-environments** (homes, hospitals, corridors).
+This is the onboard navigation software for an autonomous powered wheelchair. The
+chair carries a person, so every design choice favors safe and predictable motion
+over speed. It is built and tested for indoor use: homes, hospital wards, and
+corridors.
 
-The system fuses a 360° LiDAR with three RealSense depth cameras for obstacle
-perception, runs a custom 6-state EKF with zero-velocity updates for drift-free
-odometry, builds maps with SLAM Toolbox, and navigates with a tuned Nav2 stack using
-a backup-first recovery behavior tree designed for a heavy, hard-to-spin platform.
+The wheelchair sees obstacles with a 2D LiDAR and three RealSense depth cameras.
+Wheel encoders and an IMU feed an EKF for odometry, because the encoders on their own
+drift and underestimate distance by roughly 20%. Mapping runs on SLAM Toolbox,
+localization on AMCL, and Nav2 handles planning and control. The recovery behaviors
+back the chair up before anything else, since spinning a loaded wheelchair in place
+is neither safe nor comfortable for the passenger.
 
 ## Key Features
 
-- **Sensor fusion perception** — RPLidar S3 + 3× RealSense depth cameras fused into a single virtual scan for the Nav2 costmap.
-- **Robust odometry** — 6-state EKF `[x, y, θ, v, ω, gyro_bias]` with zero-velocity updates (ZUPT) and continuous gyro bias recalibration; corrects ~20 % wheel-encoder underestimation.
-- **Flexible SLAM** — lidar-only mapping by default (camera noise degrades scan matching), with optional fused and hospital-corridor modes.
-- **Safety-first navigation** — velocity-limited control, acceleration-smoothed `/cmd_vel`, and a backup-first recovery tree (a wheelchair with a passenger cannot safely spin in place).
-- **Edge-ready** — runs on an NVIDIA Jetson Orin; staggered camera startup avoids USB bandwidth collisions.
+- RPLidar S3 and three RealSense depth cameras fused into one scan for the Nav2 costmap.
+- A 6-state EKF `[x, y, θ, v, ω, gyro_bias]` with zero-velocity updates and ongoing gyro-bias correction. It also compensates the ~20% wheel-encoder underestimation.
+- SLAM Toolbox mapping. Lidar-only by default, because camera noise degrades scan matching. Fused and hospital-corridor modes are available as launch options.
+- Velocity-limited control with acceleration smoothing on `/cmd_vel`, and a recovery tree that backs up before it spins.
+- Runs on an NVIDIA Jetson Orin. Cameras start staggered so they do not saturate the USB bus.
 
 ## System Architecture
 
-```
-HARDWARE                          STAGE 1: FILTERING         STAGE 2: FUSION
-┌──────────────────┐              ┌──────────────────┐       ┌────────────────────────┐
-│ RPLidar S3   /scan│──────────────▶ laser_filter      ├───────▶ scan_fusion (LiDAR +  │
-│ 3× RealSense depth│──────────────────────────────────────────▶ 3× depth) → /scan_fused│
-│ RealSense IMU     │──────────────▶ imu calib/bias →  │       │                        │
-│ Arduino encoders  │              │ madgwick filter   │       │ wheel odom + IMU       │
-└──────────────────┘              └──────────────────┘       │   → robust EKF + ZUPT  │
-                                                              └───────────┬────────────┘
-   STAGE 4: NAVIGATION              STAGE 3: LOCALIZATION                  │ odom→base_link TF
-┌────────────────────────┐        ┌──────────────────────────┐           │
-│ SMAC 2D planner         │◀───────┤ map_server → /map         │◀──────────┘
-│  → Regulated Pure Pursuit│        │ /scan_fused + EKF → AMCL  │
-│  → velocity smoother     │        │   → map→odom TF           │
-│  → DiffDrive → motors    │        └──────────────────────────┘
-└────────────────────────┘
-```
+<div align="center">
 
-**TF tree:** `map → odom → base_link → wheelchair_main → lidar → laser`, with camera
-frames branching off `base_link`. The `odom→base_link` transform is owned by the
-EKF/ZUPT node (the diff-drive controller's TF publishing is intentionally disabled to
-avoid conflicts).
+![System architecture](assets/architecture.png)
+
+</div>
+
+Data flows bottom to top. Sensors and the Arduino sit at the base. The perception
+layer filters the scan and fuses LiDAR with the three depth cameras into
+`/scan_fused`, while wheel odometry and the Madgwick-filtered IMU go into the EKF.
+SLAM Toolbox and AMCL handle localization, the planning layer maintains the global
+and local costmaps and runs the SMAC 2D A* planner, and the navigation and control
+layers turn the path into smoothed, speed-limited velocity commands at
+`/wc_control/cmd_vel`.
+
+The TF tree is `map → odom → base_link → wheelchair_main → lidar → laser`, with the
+camera frames branching off `base_link`. The `odom→base_link` transform is published
+by the EKF/ZUPT node. The diff-drive controller's own TF publishing is left off on
+purpose so the two do not fight over the same transform.
 
 ## Repository Structure
 
