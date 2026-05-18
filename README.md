@@ -1,149 +1,201 @@
-# Wheelchair Autonomous Navigation
+<div align="center">
 
-ROS2 Jazzy workspace for autonomous wheelchair navigation with SLAM, localization, and Nav2.
+# 🦽 Autonomous Wheelchair Navigation
 
-## Quick Start
+**A production ROS 2 navigation stack for a differential-drive powered wheelchair —
+LiDAR + multi-camera fusion, robust EKF/ZUPT odometry, SLAM mapping, and Nav2 autonomy.**
+
+[![ROS 2 Jazzy](https://img.shields.io/badge/ROS%202-Jazzy-22314E?logo=ros&logoColor=white)](https://docs.ros.org/en/jazzy/)
+[![Ubuntu 24.04](https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu&logoColor=white)](https://releases.ubuntu.com/24.04/)
+[![Nav2](https://img.shields.io/badge/Navigation-Nav2-2C7BB6)](https://navigation.ros.org/)
+[![C++ | Python](https://img.shields.io/badge/Lang-C%2B%2B%20%7C%20Python-3776AB)](#)
+[![Platform: Jetson Orin](https://img.shields.io/badge/Edge-Jetson%20Orin-76B900?logo=nvidia&logoColor=white)](#)
+
+</div>
+
+---
+
+## Overview
+
+This repository contains the complete onboard navigation software for an autonomous
+powered wheelchair. The platform carries a human passenger, so the stack is engineered
+around **safety, smooth motion, and reliable localization in cluttered indoor
+environments** (homes, hospitals, corridors).
+
+The system fuses a 360° LiDAR with three RealSense depth cameras for obstacle
+perception, runs a custom 6-state EKF with zero-velocity updates for drift-free
+odometry, builds maps with SLAM Toolbox, and navigates with a tuned Nav2 stack using
+a backup-first recovery behavior tree designed for a heavy, hard-to-spin platform.
+
+## Key Features
+
+- **Sensor fusion perception** — RPLidar S3 + 3× RealSense depth cameras fused into a single virtual scan for the Nav2 costmap.
+- **Robust odometry** — 6-state EKF `[x, y, θ, v, ω, gyro_bias]` with zero-velocity updates (ZUPT) and continuous gyro bias recalibration; corrects ~20 % wheel-encoder underestimation.
+- **Flexible SLAM** — lidar-only mapping by default (camera noise degrades scan matching), with optional fused and hospital-corridor modes.
+- **Safety-first navigation** — velocity-limited control, acceleration-smoothed `/cmd_vel`, and a backup-first recovery tree (a wheelchair with a passenger cannot safely spin in place).
+- **Edge-ready** — runs on an NVIDIA Jetson Orin; staggered camera startup avoids USB bandwidth collisions.
+
+## System Architecture
+
+```
+HARDWARE                          STAGE 1: FILTERING         STAGE 2: FUSION
+┌──────────────────┐              ┌──────────────────┐       ┌────────────────────────┐
+│ RPLidar S3   /scan│──────────────▶ laser_filter      ├───────▶ scan_fusion (LiDAR +  │
+│ 3× RealSense depth│──────────────────────────────────────────▶ 3× depth) → /scan_fused│
+│ RealSense IMU     │──────────────▶ imu calib/bias →  │       │                        │
+│ Arduino encoders  │              │ madgwick filter   │       │ wheel odom + IMU       │
+└──────────────────┘              └──────────────────┘       │   → robust EKF + ZUPT  │
+                                                              └───────────┬────────────┘
+   STAGE 4: NAVIGATION              STAGE 3: LOCALIZATION                  │ odom→base_link TF
+┌────────────────────────┐        ┌──────────────────────────┐           │
+│ SMAC 2D planner         │◀───────┤ map_server → /map         │◀──────────┘
+│  → Regulated Pure Pursuit│        │ /scan_fused + EKF → AMCL  │
+│  → velocity smoother     │        │   → map→odom TF           │
+│  → DiffDrive → motors    │        └──────────────────────────┘
+└────────────────────────┘
+```
+
+**TF tree:** `map → odom → base_link → wheelchair_main → lidar → laser`, with camera
+frames branching off `base_link`. The `odom→base_link` transform is owned by the
+EKF/ZUPT node (the diff-drive controller's TF publishing is intentionally disabled to
+avoid conflicts).
+
+## Repository Structure
+
+| Package | Build | Responsibility |
+|---|---|---|
+| `wheelchair_bringup` | ament_cmake | Top-level launch files (navigation, SLAM, RTAB-Map, ablations) |
+| `wheelchair_navigation` | ament_cmake | Nav2 parameter sets + behavior trees |
+| `wheelchair_localization` | ament_python | Scan-fusion node, odom corrector, SLAM/AMCL/laser configs |
+| `wheelchair_zupt` | ament_python | EKF + zero-velocity-update odometry (primary odom source) |
+| `wheelchair_description` | ament_cmake | URDF/xacro, meshes, RViz configs |
+| `wheelchair_firmware` | ament_cmake | C++ `ros2_control` Arduino hardware-interface plugin |
+| `wheelchair_mapping` | ament_cmake | SLAM Toolbox launch/config helpers |
+| `wc_control` | ament_cmake | `ros2_control` diff-drive config + IMU pipeline nodes |
+| `scripts` | ament_python | Teleop bridge, data loggers, diagnostics |
+| `rplidar_ros` | ament_cmake | RPLidar S3 driver (vendored) |
+
+## Hardware
+
+| Component | Model | Topic / Interface |
+|---|---|---|
+| Base | Custom differential drive | Arduino @ `/dev/ttyACM0` |
+| LiDAR | RPLidar S3 (10 Hz) | `/scan` @ `/dev/ttyUSB0` |
+| Front camera | RealSense D455 | depth + RGB + IMU |
+| Side cameras | RealSense D455 (left), D435i (right) | depth |
+| Odometry | Wheel encoders + RealSense IMU | `/wc_control/odom`, `/camera/imu` |
+
+| Parameter | Value |
+|---|---|
+| Wheel radius | 0.1524 m |
+| Wheel separation | 0.565 m |
+| Max velocity | 0.25 m/s |
+
+## Installation
+
+**Prerequisites:** Ubuntu 24.04 + [ROS 2 Jazzy](https://docs.ros.org/en/jazzy/Installation.html).
 
 ```bash
-# Clone the repository
-git clone <repo-url> wheelchair_nav
+# 1. Clone into a workspace
+git clone https://github.com/siddharthtiwari1/wheelchair_nav.git
 cd wheelchair_nav
 
-# Setup and build (first time)
-source setup.bash
-
-# Run autonomous navigation
-run_nav
-
-# Or run SLAM mapping
-run_slam
-```
-
-## Requirements
-
-- ROS2 Jazzy (or Humble)
-- Nav2 navigation stack
-- robot_localization
-- slam_toolbox
-- laser_filters
-- RPLidar ROS2 driver
-- RealSense ROS2 driver
-
-### Install Dependencies
-
-```bash
+# 2. Install dependencies
 sudo apt update
-sudo apt install ros-jazzy-nav2-bringup ros-jazzy-robot-localization \
-    ros-jazzy-slam-toolbox ros-jazzy-laser-filters \
-    ros-jazzy-realsense2-camera ros-jazzy-imu-filter-madgwick
+sudo apt install \
+    ros-jazzy-navigation2 ros-jazzy-nav2-bringup \
+    ros-jazzy-robot-localization ros-jazzy-slam-toolbox \
+    ros-jazzy-laser-filters ros-jazzy-realsense2-camera \
+    ros-jazzy-realsense2-description ros-jazzy-imu-filter-madgwick \
+    ros-jazzy-ros2-control ros-jazzy-ros2-controllers \
+    ros-jazzy-controller-manager ros-jazzy-xacro
+
+# 3. Build
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install
+source install/setup.bash
 ```
 
-## Hardware Setup
+`source setup.bash` configures the environment and exposes the convenience commands
+below.
 
-- **Wheelchair Base**: Custom differential drive with Arduino interface
-- **LIDAR**: RPLidar S3 (360 deg scan on /scan)
-- **Camera**: RealSense D455 (depth + RGB + IMU)
-- **Controller**: Arduino via USB serial
-
-### USB Device Permissions
+### USB device permissions
 
 ```bash
-# Add udev rules for USB devices
 sudo cp scripts/99-wheelchair-usb.rules /etc/udev/rules.d/
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-```
-
-## Workspace Structure
-
-```
-wheelchair_nav/
-├── setup.bash                    # Main setup script
-├── maps/                         # Saved maps
-│   └── my_map_final_cleaned.yaml # Pre-built map
-├── src/
-│   ├── wheelchair_bringup/       # Launch files
-│   ├── wheelchair_navigation/    # Nav2 configs
-│   ├── wheelchair_localization/  # EKF, AMCL configs
-│   ├── wheelchair_description/   # URDF, RViz configs
-│   ├── wheelchair_firmware/      # Hardware interface
-│   ├── wheelchair_mapping/       # SLAM configs
-│   ├── wheelchair_zupt/          # ZUPT odometry
-│   ├── wc_control/               # ros2_control configs
-│   ├── rplidar_ros/              # RPLidar driver
-│   └── scripts/                  # Utility scripts
-└── README.md
+sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
 ## Usage
 
-### Autonomous Navigation
+| Command | Equivalent launch | Purpose |
+|---|---|---|
+| `run_nav` | `wheelchair_bringup wheelchair_fusion_nav.launch.py` | Full autonomous navigation (needs a map) |
+| `run_slam` | `wheelchair_bringup wheelchair_slam_mapping.launch.py` | Build a map (lidar-only by default) |
+| `run_localization` | `wheelchair_bringup wheelchair_fusion_localization.launch.py` | Localization only, no Nav2 |
 
 ```bash
+# Autonomous navigation with the default map
 source setup.bash
 run_nav
+
+# Use a custom map / params
+run_nav map_name:=/path/to/map.yaml \
+        nav2_params:=src/wheelchair_navigation/config/nav2_params_3cam_v29.yaml
+
+# Mapping (drive around, Ctrl+C to save)
+run_slam                       # lidar-only (default)
+run_slam use_fused_slam:=true  # lidar + camera occupancy
+run_slam hospital_mode:=true   # 30 m range tuned for corridors
+
+# Alternative SLAM with visual loop closure
+ros2 launch wheelchair_bringup wheelchair_rtabmap_mapping.launch.py
 ```
 
-This launches:
-- Hardware interface (Arduino, sensors)
-- EKF sensor fusion (wheel odom + IMU)
-- AMCL global localization
-- Nav2 navigation stack
-- RViz visualization
-
-Use RViz "2D Goal Pose" button to send navigation goals.
-
-### SLAM Mapping
+Send goals with the RViz **2D Goal Pose** tool, or via the action interface:
 
 ```bash
-source setup.bash
-run_slam
+ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
+  "{pose: {header: {frame_id: 'map'}, pose: {position: {x: 1.0, y: 0.5}, orientation: {w: 1.0}}}}"
 ```
 
-Drive the wheelchair around to build a map. Press Ctrl+C to save.
+## Configuration
 
-### Custom Map
+| File | Controls |
+|---|---|
+| `wheelchair_navigation/config/nav2_params_3cam_v29.yaml` | Active Nav2 stack (3-cam STVL, safe RPP) |
+| `wheelchair_navigation/behavior_tree/wheelchair_robust_nav_v3.xml` | Active behavior tree (backup-first recovery) |
+| `wheelchair_localization/config/slam_toolbox_motion_compensated_v2.yaml` | Active lidar-only SLAM |
+| `wheelchair_localization/config/amcl_fusion.yaml` | AMCL particle filter |
+| `wheelchair_localization/config/laser_filter_robust.yaml` | Laser filter chain |
+| `wc_control/config/wc_control_safe_v2.yaml` | Diff-drive controller velocity limits |
 
-```bash
-run_nav map_name:=/path/to/your/map.yaml
-```
-
-## Launch Arguments
-
-### Navigation Launch
-
-| Argument | Default | Description |
-|----------|---------|-------------|
-| map_name | maps/my_map_final_cleaned.yaml | Path to map YAML |
-| use_rviz | true | Launch RViz |
-| use_sim_time | false | Use simulation time |
-| nav2_params | nav2_params_robust.yaml | Nav2 parameters |
-
-### Localization Launch
-
-| Argument | Default | Description |
-|----------|---------|-------------|
-| use_zupt | true | Use ZUPT-enhanced odometry |
-| use_fused_scan | true | Fuse depth + LIDAR for AMCL |
-| use_depth | true | Enable depth camera |
+> **Config versioning rule.** Configuration files (`*.yaml`, behavior-tree `*.xml`,
+> RViz configs) are **never edited in place**. Each change creates a new versioned
+> file (`<base>_<variant>[_vN].yaml`), the launch default is repointed to it, and the
+> old file is kept for rollback. Source code (`.py`, `.cpp`) is edited normally.
 
 ## Troubleshooting
 
-### "Device busy" errors
-Kill existing ROS2 processes first:
-```bash
-pkill -9 -f ros2; pkill -9 -f rviz; sleep 3
-```
+| Symptom | Fix |
+|---|---|
+| `Device busy` on launch | Kill stale processes: `pkill -9 -f ros; pkill -9 -f rviz; pkill -9 -f realsense; sleep 2` |
+| AMCL not converging | Verify map (`ros2 topic echo /map --once`) and scan (`ros2 topic hz /scan_filtered`); re-set pose with RViz **2D Pose Estimate** |
+| Robot not moving | Check `ros2 lifecycle get /controller_server` and `ros2 topic hz /local_costmap/costmap` |
+| TF errors | `ros2 run tf2_tools view_frames` to inspect the tree |
 
-### AMCL not converging
-- Check that map is loaded: `ros2 topic echo /map --once`
-- Verify LIDAR scan: `ros2 topic hz /scan_filtered`
-- Re-initialize pose in RViz: "2D Pose Estimate"
+### Known issues
 
-### Navigation not moving
-- Check costmaps: `ros2 topic hz /local_costmap/costmap`
-- Verify controller: `ros2 lifecycle get /controller_server`
+- **Laser filter crash** — angular/shadow/temporal/box filters segfault on ROS 2 Jazzy; only range + speckle filters are enabled in `laser_filter_robust.yaml`.
+- **Odometry underestimation** — keep `position_feedback: false` in the diff-drive config to avoid ~35 % underestimation from position differentiation.
+- **TF ownership** — the diff-drive controller's `publish_odom_tf` must stay `false`; the EKF/ZUPT node owns `odom→base_link`.
+- **AMCL jumping** — `recovery_alpha_fast: 0.0` prevents aggressive re-localization jumps.
 
 ## Author
 
-Siddharth Tiwari (s24035@students.iitmandi.ac.in)
+**Siddharth Tiwari** — IIT Mandi · [s24035@students.iitmandi.ac.in](mailto:s24035@students.iitmandi.ac.in)
+
+## License
+
+Released for academic and research use. Please contact the author regarding other use
+or collaboration.
