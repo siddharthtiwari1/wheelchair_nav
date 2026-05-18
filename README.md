@@ -29,18 +29,18 @@ diff-drive controller's own odom TF is disabled so the two estimators do not col
 
 ## Packages
 
-| Package | Build | Responsibility |
-|---|---|---|
-| `wheelchair_bringup` | ament_cmake | Top-level launch files |
-| `wheelchair_navigation` | ament_cmake | Nav2 parameter sets and behaviour trees |
-| `wheelchair_localization` | ament_python | `scan_fusion_v9`, AMCL / laser / SLAM configs |
-| `wheelchair_zupt` | ament_python | `zupt_node` (nav) and `robust_ekf_zupt_node` (slam) odometry |
-| `wheelchair_description` | ament_cmake | URDF/xacro, meshes, RViz configs |
-| `wheelchair_firmware` | ament_cmake | C++ `ros2_control` Arduino hardware interface |
-| `wheelchair_mapping` | ament_cmake | SLAM Toolbox launch/config helpers |
-| `wc_control` | ament_cmake | Diff-drive config and the 4-node IMU pipeline |
-| `scripts` | ament_python | Teleop, `cmd_vel` bridge, loggers, diagnostics |
-| `rplidar_ros` | ament_cmake | RPLidar S3 driver (vendored) |
+| Package | Responsibility |
+|---|---|
+| `wheelchair_bringup` | Top-level launch files |
+| `wheelchair_navigation` | Nav2 parameter sets and behaviour trees |
+| `wheelchair_localization` | `scan_fusion_v9`, AMCL / laser / SLAM configs |
+| `wheelchair_zupt` | `zupt_node` (nav) and `robust_ekf_zupt_node` (slam) odometry |
+| `wheelchair_description` | URDF/xacro, meshes, RViz configs |
+| `wheelchair_firmware` | C++ `ros2_control` Arduino hardware interface |
+| `wheelchair_mapping` | SLAM Toolbox launch/config helpers |
+| `wc_control` | Diff-drive config and the 4-node IMU pipeline |
+| `scripts` | Teleop, `cmd_vel` bridge, loggers, diagnostics |
+| `rplidar_ros` | RPLidar S3 driver (vendored) |
 
 ## Hardware
 
